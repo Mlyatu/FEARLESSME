@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>eFootball Arena | Tournament System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+    :root {
+        --ef-lime: #39FF14;
+        --ef-pink: #FF2D78;
+        --ef-cyan: #00E5FF;
+        --ef-dark: #070B12;
+        --ef-card: rgba(10,16,28,0.92);
+        --ef-border: rgba(57,255,20,0.25);
+        --ef-text: #E8F0FF;
+        --ef-muted: #7A8BAA;
+        --ef-online: #39FF14;
+        --ef-gold: #FFD700;
+        --font-body: 'Exo 2', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-display: 'Bebas Neue', sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        font-family: var(--font-body);
+        font-weight: 500;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: var(--ef-dark);
+        color: var(--ef-text);
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    body::before {
+        content:'';
+        position: fixed;
+        inset: 0;
+        background:
+            radial-gradient(ellipse 80% 50% at 10% 20%, rgba(57,255,20,0.06), transparent),
+            radial-gradient(ellipse 60% 40% at 90% 80%, rgba(255,45,120,0.07), transparent),
+            radial-gradient(ellipse 50% 50% at 50% 50%, rgba(0,229,255,0.04), transparent);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* ---- HERO ---- */
+    .fullscreen-hero {
+        position: fixed; inset: 0; z-index: 1000;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        overflow: hidden;
+        background: var(--ef-dark);
+    }
+    .hero-bg-grid {
+        position: absolute; inset: 0;
+        background-image:
+            linear-gradient(rgba(57,255,20,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(57,255,20,0.04) 1px, transparent 1px);
+        background-size: 60px 60px;
+        animation: gridPulse 4s ease-in-out infinite;
+    }
+    @keyframes gridPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+    .hero-bolts {
+        position: absolute; inset: 0; pointer-events: none;
+        overflow: hidden;
+    }
+    .bolt {
+        position: absolute;
+        width: 0; height: 0;
+        border-style: solid;
+        opacity: 0.15;
+        animation: boltFloat 6s ease-in-out infinite;
+    }
+    .bolt:nth-child(1) { border-width: 0 25px 60px 0; border-color: transparent var(--ef-lime) transparent transparent; top: 10%; left: 5%; animation-delay: 0s; }
+    .bolt:nth-child(2) { border-width: 0 0 60px 25px; border-color: transparent transparent var(--ef-pink) transparent; top: 15%; right: 8%; animation-delay: 1s; }
+    .bolt:nth-child(3) { border-width: 0 20px 50px 0; border-color: transparent var(--ef-cyan) transparent transparent; bottom: 20%; left: 10%; animation-delay: 2s; }
+    .bolt:nth-child(4) { border-width: 0 0 50px 20px; border-color: transparent transparent var(--ef-lime) transparent; bottom: 15%; right: 5%; animation-delay: 0.5s; }
+    .bolt:nth-child(5) { border-width: 0 30px 70px 0; border-color: transparent var(--ef-pink) transparent transparent; top: 50%; left: 2%; animation-delay: 3s; }
+    @keyframes boltFloat { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-20px) scale(1.1)} }
+
+    .hero-logo-wrap {
+        position: relative; z-index: 2;
+        display: flex; flex-direction: column; align-items: center;
+        animation: heroReveal 0.8s cubic-bezier(.16,1,.3,1) both;
+    }
+    @keyframes heroReveal { from{opacity:0;transform:translateY(40px) scale(0.9)} to{opacity:1;transform:none} }
+
+    .hero-logo-carousel {
+        position: relative;
+        width: min(280px, 75vw);
+        height: min(180px, 48vw);
+        margin-bottom: 16px;
+        filter: drop-shadow(0 0 24px rgba(57,255,20,0.45));
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(57,255,20,0.25);
+    }
+    .ef-logo-slide {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transform: scale(0.92);
+        transition: opacity 1.1s ease, transform 1.1s ease;
+        pointer-events: none;
+    }
+    .ef-logo-slide.active {
+        opacity: 1;
+        transform: scale(1);
+        animation: logoPulse 3s ease-in-out infinite;
+    }
+    .hero-logo-dots {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        margin-top: -8px;
+        margin-bottom: 8px;
+    }
+    .hero-logo-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        transition: background 0.3s, transform 0.3s;
+    }
+    .hero-logo-dots span.on {
+        background: var(--ef-lime);
+        transform: scale(1.2);
+        box-shadow: 0 0 8px rgba(57,255,20,0.6);
+    }
+    .ef-logo-topbar { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+    @keyframes logoPulse { 0%,100%{filter:drop-shadow(0 0 12px rgba(57,255,20,0.4))} 50%{filter:drop-shadow(0 0 28px rgba(57,255,20,0.85)) drop-shadow(0 0 40px rgba(0,229,255,0.35))} }
+
+    .hero-title {
+        font-family: var(--font-display);
+        font-size: clamp(3.5rem, 8vw, 7rem);
+        letter-spacing: 6px;
+        line-height: 0.9;
+        text-align: center;
+        background: linear-gradient(135deg, #fff 0%, var(--ef-lime) 40%, var(--ef-cyan) 70%, #fff 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        animation: titleShine 3s ease-in-out infinite;
+    }
+    @keyframes titleShine {
+        0%,100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    .hero-sub {
+        font-family: var(--font-body);
+        font-weight: 600;
+        font-size: clamp(0.75rem, 2vw, 1rem);
+        letter-spacing: 3px;
+        color: var(--ef-muted);
+        text-transform: uppercase;
+        margin: 8px 0 6px;
+        text-align: center;
+    }
+    .hero-badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(57,255,20,0.08);
+        border: 1px solid rgba(57,255,20,0.3);
+        border-radius: 4px;
+        padding: 6px 18px;
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        color: var(--ef-lime);
+        margin: 16px 0 36px;
+        text-transform: uppercase;
+    }
+    .hero-btns {
+        display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+        animation: heroReveal 0.8s 0.3s cubic-bezier(.16,1,.3,1) both;
+    }
+    .h-btn {
+        font-family: var(--font-body);
+        font-weight: 700;
+        font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase;
+        padding: 12px 28px; border-radius: 4px; cursor: pointer;
+        border: none; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 8px;
+        transition: all 0.25s;
+        position: relative; overflow: hidden;
+    }
+    .h-btn::before { content:''; position:absolute; inset:0; background: rgba(255,255,255,0.1); opacity:0; transition:opacity 0.2s; }
+    .h-btn:hover::before { opacity:1; }
+    .h-btn-primary { background: var(--ef-lime); color: #000; }
+    .h-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(57,255,20,0.5); }
+    .h-btn-ghost { background: transparent; color: var(--ef-text); border: 1px solid rgba(255,255,255,0.2); }
+    .h-btn-ghost:hover { border-color: var(--ef-lime); color: var(--ef-lime); transform: translateY(-2px); }
+    .h-btn-danger { background: transparent; color: var(--ef-pink); border: 1px solid rgba(255,45,120,0.4); }
+    .h-btn-danger:hover { border-color: var(--ef-pink); background: rgba(255,45,120,0.1); transform: translateY(-2px); }
+
+    .hero-stats {
+        margin-top: 28px;
+        display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+        animation: heroReveal 0.8s 0.5s cubic-bezier(.16,1,.3,1) both;
+    }
+    .hstat {
+        display: flex; flex-direction: column; align-items: center;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 4px; padding: 10px 20px;
+        min-width: 90px;
+    }
+    .hstat-val { font-family: var(--font-display); font-size: 1.8rem; color: var(--ef-lime); letter-spacing: 2px; }
+    .hstat-lbl { font-size: 0.65rem; letter-spacing: 2px; color: var(--ef-muted); text-transform: uppercase; }
+
+    /* ---- MODALS ---- */
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(12px); z-index:2000; justify-content:center; align-items:center; }
+    .modal.active { display:flex; }
+    .modal-box {
+        background: rgba(10,16,28,0.98);
+        border: 1px solid rgba(57,255,20,0.2);
+        border-radius: 8px; padding: 36px;
+        width: 90%; max-width: 520px;
+        animation: modalIn 0.3s cubic-bezier(.16,1,.3,1);
+        max-height: 88vh; overflow-y: auto;
+    }
+    @keyframes modalIn { from{opacity:0;transform:scale(0.92) translateY(20px)} to{opacity:1;transform:none} }
+    .modal-box h2 {
+        font-family: var(--font-display);
+        font-size: 2rem; letter-spacing: 4px;
+        color: var(--ef-lime); margin-bottom: 24px;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .modal-box input, .modal-box select, .modal-box textarea {
+        width: 100%; margin-bottom: 14px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 4px; padding: 10px 14px;
+        color: var(--ef-text);
+        font-family: var(--font-body); font-size: 0.95rem;
+        transition: border-color 0.2s;
+    }
+    .modal-box input:focus, .modal-box select:focus { outline:none; border-color: var(--ef-lime); background: rgba(57,255,20,0.04); }
+    .modal-box input::placeholder { color: var(--ef-muted); }
+    .modal-box select option { background: #0a1020; }
+    .modal-btns { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+
+    /* ---- MAIN APP ---- */
+    .main-app { display:none; opacity:0; transition:opacity 0.5s; padding: 0; }
+    .main-app.visible { display:block; opacity:1; }
+
+    /* TOP BAR */
+    .topbar {
+        position: sticky; top: 0; z-index: 100;
+        background: rgba(7,11,18,0.95);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(57,255,20,0.15);
+        padding: 0 24px;
+        display: flex; justify-content: space-between; align-items: center;
+        height: 64px;
+    }
+    .topbar-logo {
+        display: flex; align-items: center; gap: 12px;
+    }
+    .topbar-logo img { flex-shrink: 0; }
+    .topbar-title {
+        font-family: var(--font-display);
+        font-size: 1.6rem; letter-spacing: 4px;
+        background: linear-gradient(90deg, var(--ef-lime), var(--ef-cyan));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .topbar-subtitle { font-size: 0.7rem; letter-spacing: 2px; color: var(--ef-muted); text-transform: uppercase; }
+    .topbar-right { display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+    .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 3px; padding: 5px 14px;
+        font-size: 0.8rem; letter-spacing: 1px; cursor: pointer;
+        transition: all 0.2s; white-space: nowrap;
+    }
+    .pill:hover { border-color: var(--ef-lime); color: var(--ef-lime); }
+    .pill-lime { border-color: rgba(57,255,20,0.4); color: var(--ef-lime); }
+    .pill-pink { border-color: rgba(255,45,120,0.4); color: var(--ef-pink); }
+
+    /* NAV */
+    .navbar {
+        background: rgba(10,16,28,0.8);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding: 0 24px;
+        display: flex; gap: 4px; flex-wrap: wrap;
+        overflow-x: auto;
+    }
+    .nav-item {
+        padding: 14px 20px;
+        font-size: 0.85rem; letter-spacing: 1.5px;
+        text-transform: uppercase; cursor: pointer;
+        color: var(--ef-muted);
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        white-space: nowrap;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .nav-item:hover { color: var(--ef-text); border-bottom-color: rgba(57,255,20,0.4); }
+    .nav-item.active { color: var(--ef-lime); border-bottom-color: var(--ef-lime); }
+
+    /* MARQUEE */
+    .marquee-strip {
+        background: rgba(57,255,20,0.06);
+        border-top: 1px solid rgba(57,255,20,0.15);
+        border-bottom: 1px solid rgba(57,255,20,0.15);
+        padding: 8px 0; overflow: hidden; white-space: nowrap;
+    }
+    .marquee-inner {
+        display: inline-block;
+        animation: marqueeScroll 14s linear infinite;
+        font-family: var(--font-display);
+        font-size: 1.1rem; letter-spacing: 6px;
+        background: linear-gradient(90deg, var(--ef-lime), var(--ef-cyan), var(--ef-pink), var(--ef-lime));
+        background-size: 300%;
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        animation: marqueeScroll 14s linear infinite, marqueeShineTicker 2s ease-in-out infinite alternate;
+    }
+    @keyframes marqueeScroll { 0%{transform:translateX(100vw)} 100%{transform:translateX(-100%)} }
+    @keyframes marqueeShineTicker { 0%{background-position:0%} 100%{background-position:100%} }
+
+    /* CONTENT */
+    .content { max-width: 1600px; margin: 0 auto; padding: 24px; }
+    .two-col { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+    @media(max-width:1000px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* CARDS */
+    .card {
+        background: var(--ef-card);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .card::before {
+        content:''; position:absolute; top:0; left:0; right:0; height:2px;
+        background: linear-gradient(90deg, transparent, var(--ef-lime), transparent);
+        opacity: 0.5;
+    }
+    .card-head {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap; gap:8px;
+    }
+    .card-head h3 {
+        font-family: var(--font-body);
+        font-size: 0.8rem; letter-spacing: 3px;
+        text-transform: uppercase; color: var(--ef-text);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .card-body { padding: 20px; }
+
+    /* ONLINE BADGE */
+    .online-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(57,255,20,0.06);
+        border: 1px solid rgba(57,255,20,0.2);
+        border-radius: 3px; padding: 4px 12px; font-size: 0.8rem;
+        margin: 3px;
+    }
+    .online-dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; }
+    .online-dot.on { background: var(--ef-lime); animation: dotBlink 1.4s infinite; box-shadow: 0 0 6px var(--ef-lime); }
+    @keyframes dotBlink { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+    /* FEED */
+    .feed-item {
+        padding: 10px 14px;
+        border-left: 2px solid rgba(57,255,20,0.3);
+        margin-bottom: 8px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 0 4px 4px 0;
+        font-size: 0.88rem; line-height: 1.5;
+    }
+    .feed-item small { color: var(--ef-muted); font-size: 0.75rem; }
+
+    /* TABLE */
+    .ef-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 700px; }
+    .ef-table th {
+        font-family: var(--font-body);
+        font-size: 0.65rem; letter-spacing: 2px;
+        text-transform: uppercase; color: var(--ef-muted);
+        padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        text-align: left; font-weight: 400;
+    }
+    .ef-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .ef-table tbody tr { transition: background 0.15s; }
+    .ef-table tbody tr:hover { background: rgba(57,255,20,0.04); }
+    .ef-table tbody tr:first-child td:first-child::before {
+        content: ''; display: inline-block; width: 3px; height: 3px;
+        background: var(--ef-lime); border-radius: 50%;
+        margin-right: 6px; vertical-align: middle;
+    }
+    .rank-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 24px; height: 24px; border-radius: 3px;
+        font-family: var(--font-body); font-size: 0.7rem; font-weight: 700;
+    }
+    .rank-1 { background: rgba(255,215,0,0.15); color: var(--ef-gold); border: 1px solid rgba(255,215,0,0.4); }
+    .rank-2 { background: rgba(192,192,192,0.1); color: #C0C0C0; border: 1px solid rgba(192,192,192,0.3); }
+    .rank-3 { background: rgba(205,127,50,0.1); color: #CD7F32; border: 1px solid rgba(205,127,50,0.3); }
+    .rank-n { background: rgba(255,255,255,0.04); color: var(--ef-muted); border: 1px solid rgba(255,255,255,0.1); }
+    .pts-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        background: rgba(57,255,20,0.1); border: 1px solid rgba(57,255,20,0.3);
+        border-radius: 3px; padding: 2px 10px;
+        font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; color: var(--ef-lime);
+    }
+    .av { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(57,255,20,0.4); }
+    .tbl-wrap { overflow-x: auto; }
+
+    /* SCORE */
+    .score-vs {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-family: var(--font-body);
+    }
+    .score-num { font-size: 1.1rem; font-weight: 700; }
+    .score-sep { color: var(--ef-muted); font-size: 0.9rem; }
+
+    /* STATUS BADGE */
+    .badge-status {
+        display: inline-block; padding: 2px 10px; border-radius: 2px;
+        font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase;
+        font-family: var(--font-body);
+    }
+    .bs-played { background: rgba(57,255,20,0.1); color: var(--ef-lime); border: 1px solid rgba(57,255,20,0.3); }
+    .bs-scheduled { background: rgba(0,229,255,0.08); color: var(--ef-cyan); border: 1px solid rgba(0,229,255,0.25); }
+    .bs-pending { background: rgba(255,165,0,0.08); color: orange; border: 1px solid rgba(255,165,0,0.25); }
+
+    /* BUTTONS */
+    button {
+        font-family: var(--font-body);
+        background: rgba(57,255,20,0.12); border: 1px solid rgba(57,255,20,0.35);
+        color: var(--ef-lime); padding: 8px 18px; border-radius: 4px; cursor: pointer;
+        font-size: 0.85rem; letter-spacing: 1px; transition: all 0.2s;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    button:hover { background: rgba(57,255,20,0.2); }
+    button.btn-danger { background: rgba(255,45,120,0.1); border-color: rgba(255,45,120,0.35); color: var(--ef-pink); }
+    button.btn-danger:hover { background: rgba(255,45,120,0.2); }
+    button.btn-sm { padding: 5px 12px; font-size: 0.78rem; }
+    input, select, textarea {
+        font-family: var(--font-body);
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 4px; padding: 8px 14px; color: var(--ef-text); font-size: 0.9rem;
+        transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { outline:none; border-color: var(--ef-lime); }
+    input::placeholder { color: var(--ef-muted); }
+    select option { background: #0a1020; }
+
+    /* ADMIN */
+    .admin-only { display:none; }
+    .admin-only.visible { display:block; }
+
+    /* CHAT */
+    .chat-panel {
+        position: fixed; bottom: 20px; right: 20px;
+        width: 300px;
+        background: rgba(8,13,22,0.97);
+        border: 1px solid rgba(57,255,20,0.2);
+        border-radius: 8px; z-index: 1500;
+        backdrop-filter: blur(20px);
+    }
+    .chat-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(57,255,20,0.15);
+        display: flex; justify-content: space-between; align-items: center;
+        cursor: pointer; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .chat-header span:first-child { display: flex; align-items: center; gap: 8px; color: var(--ef-lime); font-family: var(--font-body); font-size: 0.7rem; }
+    .chat-msgs { height: 250px; overflow-y: auto; padding: 12px; font-size: 0.82rem; display: flex; flex-direction: column; gap: 6px; }
+    .chat-msgs::-webkit-scrollbar { width: 3px; }
+    .chat-msgs::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.3); border-radius: 2px; }
+    .chat-in { display: flex; padding: 10px 12px; gap: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+
+    /* TOAST */
+    .toast {
+        position: fixed; bottom: 90px; right: 20px;
+        background: rgba(57,255,20,0.15); backdrop-filter: blur(8px);
+        border: 1px solid rgba(57,255,20,0.4);
+        padding: 10px 18px; border-radius: 4px; z-index: 3000;
+        animation: toastAnim 3s ease forwards; pointer-events: none;
+        font-size: 0.85rem; color: var(--ef-lime);
+    }
+    @keyframes toastAnim { 0%{opacity:0;transform:translateX(30px)} 15%{opacity:1;transform:none} 80%{opacity:1} 100%{opacity:0;transform:translateX(30px)} }
+
+    /* FOOTER */
+    .footer {
+        background: rgba(10,16,28,0.9);
+        border-top: 1px solid rgba(255,255,255,0.06);
+        padding: 48px 24px 24px;
+        margin-top: 60px;
+    }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; max-width: 1200px; margin: 0 auto; }
+    .footer-col h4 {
+        font-family: var(--font-body); font-size: 0.75rem;
+        letter-spacing: 3px; text-transform: uppercase; color: var(--ef-lime);
+        margin-bottom: 16px; padding-bottom: 10px;
+        border-bottom: 1px solid rgba(57,255,20,0.2);
+    }
+    .footer-col p, .footer-col a { color: var(--ef-muted); font-size: 0.88rem; line-height: 2; text-decoration: none; display: block; }
+    .footer-col a:hover { color: var(--ef-lime); }
+    .social-row { display: flex; gap: 12px; margin-top: 8px; }
+    .soc-icon {
+        width: 36px; height: 36px; border-radius: 4px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+        display: flex; align-items: center; justify-content: center;
+        color: var(--ef-muted); font-size: 1rem; transition: all 0.2s; cursor: pointer;
+    }
+    .soc-icon:hover { border-color: var(--ef-lime); color: var(--ef-lime); transform: translateY(-2px); }
+    .footer-bottom {
+        text-align: center; font-size: 0.78rem; color: var(--ef-muted);
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 20px; margin-top: 40px;
+    }
+
+    /* PENDING */
+    .pending-item { background: rgba(255,165,0,0.05); border: 1px solid rgba(255,165,0,0.2); border-radius: 6px; padding: 14px; margin-bottom: 12px; }
+    .screenshot-preview { max-width: 180px; max-height: 130px; border-radius: 6px; cursor: pointer; margin: 4px; }
+
+    /* MEDIA GRID */
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .media-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px; text-align: center; font-size: 0.8rem; }
+
+    /* SECTION ANIM */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+    .card { animation: fadeUp 0.4s ease both; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.2); border-radius: 2px; }
+
+    /* BADGE */
+    .badge { background: rgba(57,255,20,0.1); border: 1px solid rgba(57,255,20,0.3); border-radius: 3px; padding: 2px 10px; font-size: 0.72rem; letter-spacing: 2px; color: var(--ef-lime); font-family: var(--font-body); }
+    .pwd-field { position: relative; margin-bottom: 14px; }
+    .pwd-field input { margin-bottom: 0; padding-right: 44px; width: 100%; }
+    .pwd-toggle {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        background: transparent; border: none; color: var(--ef-muted);
+        cursor: pointer; padding: 8px; line-height: 1;
+    }
+    .pwd-toggle:hover { color: var(--ef-lime); }
+    .pay-instructions {
+        background: rgba(57,255,20,0.06); border: 1px solid rgba(57,255,20,0.25);
+        border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; font-size: 0.85rem; line-height: 1.5;
+    }
+    .pay-instructions strong { color: var(--ef-lime); }
+    .pay-number { font-family: var(--font-body); font-weight: 700; font-size: 1rem; letter-spacing: 1px; color: var(--ef-cyan); }
+    .pending-reg-item {
+        background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.2);
+        border-radius: 6px; padding: 14px; margin-bottom: 12px;
+    }
+    .reg-avatar-field { margin-bottom: 14px; }
+    .reg-avatar-field label { display: block; font-size: 0.8rem; color: var(--ef-muted); margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase; }
+    .reg-avatar-field input[type="file"] { width: 100%; padding: 8px; font-size: 0.85rem; }
+    .reg-avatar-preview { display: none; align-items: center; gap: 12px; margin-top: 8px; }
+    .reg-avatar-preview img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--ef-border); }
+    .reg-avatar-preview span { font-size: 0.8rem; color: var(--ef-muted); }
+    .flex-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+    /* LEADERBOARD TOP 3 HIGHLIGHT */
+    .ef-table tbody tr:nth-child(1) td { background: rgba(255,215,0,0.03); }
+    .ef-table tbody tr:nth-child(2) td { background: rgba(192,192,192,0.02); }
+    .ef-table tbody tr:nth-child(3) td { background: rgba(205,127,50,0.02); }
+
+    .phone-row { display: flex; gap: 8px; }
+    .modal-btns button, .h-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    input, select, textarea, button { font-size: 16px; }
+    @media (min-width: 641px) {
+        input, select, textarea { font-size: 0.95rem; }
+        button { font-size: inherit; }
+    }
+
+    #serverStatusBar {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 5000;
+        background: rgba(255, 45, 120, 0.95); color: #fff;
+        padding: 10px 14px; font-size: 0.85rem; text-align: center;
+        line-height: 1.45; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    #serverStatusBar a { color: var(--ef-lime); font-weight: 700; }
+    #serverStatusBar code { background: rgba(0,0,0,0.25); padding: 2px 6px; border-radius: 3px; }
+    body.server-offline { padding-top: 52px; }
+    .card-pending-verify {
+        border-color: rgba(0, 229, 255, 0.45) !important;
+        box-shadow: 0 0 24px rgba(0, 229, 255, 0.12);
+    }
+    .card-pending-verify .card-head { background: rgba(0, 229, 255, 0.06); }
+    #pendingRegBadge { margin-left: 6px; vertical-align: middle; }
+
+    @media (max-width: 640px) {
+        .fullscreen-hero {
+            justify-content: flex-start;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: max(12px, env(safe-area-inset-top)) 12px max(20px, env(safe-area-inset-bottom));
+        }
+        .hero-logo-wrap { width: 100%; max-width: 100%; }
+        .hero-logo-carousel {
+            width: min(100%, 340px);
+            height: min(52vw, 200px);
+        }
+        .hero-title {
+            font-size: clamp(2rem, 11vw, 3.2rem);
+            letter-spacing: 2px;
+            padding: 0 4px;
+        }
+        .hero-sub { letter-spacing: 2px; padding: 0 8px; }
+        .hero-badge {
+            font-size: 0.62rem;
+            letter-spacing: 1px;
+            padding: 6px 10px;
+            margin: 10px 8px 16px;
+            text-align: center;
+            line-height: 1.35;
+        }
+        .hero-btns {
+            width: 100%;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 4px;
+        }
+        .h-btn { width: 100%; justify-content: center; padding: 14px 12px; }
+        .hero-stats {
+            gap: 8px;
+            width: 100%;
+            margin-top: 16px;
+            padding: 0 2px 8px;
+        }
+        .hstat { flex: 1 1 calc(50% - 8px); min-width: 0; padding: 8px 6px; }
+        .hstat-val { font-size: 1.35rem; }
+        .hstat-lbl { font-size: 0.58rem; letter-spacing: 1px; }
+        .modal { align-items: flex-end; padding: 0; }
+        .modal-box {
+            width: 100%;
+            max-width: 100%;
+            max-height: 92vh;
+            border-radius: 12px 12px 0 0;
+            padding: 20px 16px max(16px, env(safe-area-inset-bottom));
+        }
+        .modal-box h2 { font-size: 1.35rem; letter-spacing: 2px; margin-bottom: 16px; }
+        .modal-btns { flex-direction: column-reverse; gap: 8px; }
+        .modal-btns button { width: 100%; justify-content: center; }
+        .phone-row { flex-direction: column; }
+        .phone-row select { width: 100% !important; }
+        .topbar {
+            height: auto;
+            min-height: 52px;
+            padding: 10px 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .topbar-logo { flex: 1 1 auto; min-width: 0; }
+        .topbar-title { font-size: 0.95rem; letter-spacing: 2px; }
+        .topbar-subtitle { display: none; }
+        .topbar-right { width: 100%; justify-content: flex-start; gap: 6px; }
+        .pill, .topbar-right button { font-size: 0.72rem; padding: 6px 10px; }
+        .navbar { padding: 0 6px; gap: 0; }
+        .nav-item { padding: 10px 12px; font-size: 0.72rem; letter-spacing: 1px; }
+        .content { padding: 12px 10px; }
+        .card-body { padding: 14px; }
+        .card-head { padding: 12px 14px; }
+        .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+        .ef-table { min-width: 560px; font-size: 0.8rem; }
+        .ef-table th, .ef-table td { padding: 8px 6px; }
+        .flex-row { flex-wrap: wrap; }
+        .chat-panel {
+            left: 10px;
+            right: 10px;
+            bottom: max(10px, env(safe-area-inset-bottom));
+            width: auto;
+            max-width: none;
+        }
+        .chat-msgs { height: min(40vh, 220px); }
+        .toast {
+            left: 10px;
+            right: 10px;
+            bottom: max(72px, env(safe-area-inset-bottom));
+            text-align: center;
+        }
+        .pending-reg-item .btn-sm { width: 100%; margin-top: 4px; }
+        .footer { padding: 32px 16px 20px; }
+        .pay-number { font-size: 0.9rem; word-break: break-all; }
+    }
+    </style>
+</head>
+<body>
+
+<div id="serverStatusBar" style="display:none" role="alert"></div>
+
+<!-- ================================================================== HERO -->
+<div id="fullscreenHero" class="fullscreen-hero">
+    <div class="hero-bg-grid"></div>
+    <div class="hero-bolts">
+        <div class="bolt"></div><div class="bolt"></div>
+        <div class="bolt"></div><div class="bolt"></div><div class="bolt"></div>
+    </div>
+    <div class="hero-logo-wrap">
+        <div class="hero-logo-carousel" id="heroLogoCarousel" aria-label="eFootball gallery"></div>
+        <div class="hero-logo-dots" id="heroLogoDots" aria-hidden="true"></div>
+        <div class="hero-title">eFOOTBALL<br>ARENA</div>
+        <div class="hero-sub">Rise Through The Ranks</div>
+        <div class="hero-badge"><i class="fas fa-gamepad"></i> Live Tournaments · Global Rivals · Konami Spirit</div>
+        <div class="hero-btns">
+            <button class="h-btn h-btn-primary" id="enterArenaBtn"><i class="fas fa-door-open"></i> ENTER ARENA</button>
+            <button class="h-btn h-btn-ghost" id="openRegisterModalBtn"><i class="fas fa-user-plus"></i> REGISTER</button>
+            <button class="h-btn h-btn-ghost" id="openLoginModalBtn"><i class="fas fa-sign-in-alt"></i> LOGIN</button>
+            <button class="h-btn h-btn-danger" id="openAdminLoginBtn"><i class="fas fa-user-shield"></i> ADMIN</button>
+        </div>
+        <div class="hero-stats">
+            <div class="hstat"><div class="hstat-val" id="hsStat1">0</div><div class="hstat-lbl">Squads</div></div>
+            <div class="hstat"><div class="hstat-val" id="hsStat2">0</div><div class="hstat-lbl">Tournaments</div></div>
+            <div class="hstat"><div class="hstat-val" id="hsStat3">0</div><div class="hstat-lbl">Online</div></div>
+            <div class="hstat"><div class="hstat-val" id="hsStat4">0</div><div class="hstat-lbl">Matches</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================ MODALS -->
+<div id="registerModal" class="modal"><div class="modal-box">
+    <h2><i class="fas fa-user-plus"></i> Register Squad</h2>
+    <form id="modalRegisterForm">
+        <input type="text" id="modalRegName" placeholder="Full Name (Manager)" required>
+        <div class="phone-row">
+            <select id="modalRegPhoneCode" style="width:155px;flex-shrink:0"></select>
+            <input type="tel" id="modalRegPhone" placeholder="e.g. 712345678" inputmode="numeric" maxlength="10" required style="flex:1">
+        </div>
+        <select id="modalRegCountry" required><option value="">Select Country</option></select>
+        <input type="text" id="modalRegSquad" placeholder="eFootball Squad Name" required>
+        <select id="paymentProvider" required>
+            <option value="">Select Payment Provider</option>
+            <option>M-Pesa</option><option>Tigo Pesa</option><option>Airtel Money</option>
+        </select>
+        <div id="regPaymentInstructions" class="pay-instructions" style="display:none"></div>
+        <p id="regPhoneHint" style="font-size:0.75rem;color:var(--ef-muted);margin:-6px 0 12px;line-height:1.4">
+            Pay the registration fee to the number shown above, then enter your payment reference below.
+        </p>
+        <input type="text" id="modalRegPaymentRef" placeholder="Payment reference / transaction ID" required>
+        <div class="pwd-field">
+            <input type="password" id="modalRegPassword" placeholder="Submission Password (for login)" required>
+            <button type="button" class="pwd-toggle" data-target="modalRegPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+        </div>
+        <div class="reg-avatar-field">
+            <label for="modalRegAvatar"><i class="fas fa-image"></i> Profile picture</label>
+            <input type="file" id="modalRegAvatar" accept="image/jpeg,image/png,image/webp" required>
+            <div id="modalRegAvatarPreview" class="reg-avatar-preview">
+                <img id="modalRegAvatarImg" alt="Preview">
+                <span id="modalRegAvatarName"></span>
+            </div>
+        </div>
+        <div class="modal-btns">
+            <button type="button" id="closeModalBtn" class="btn-danger">Cancel</button>
+            <button type="submit"><i class="fas fa-paper-plane"></i> Submit for Admin Verification</button>
+        </div>
+    </form>
+    <div id="modalRegMessage" style="margin-top:12px;font-size:0.82rem;color:var(--ef-lime)"></div>
+</div></div>
+
+<div id="loginModal" class="modal"><div class="modal-box">
+    <h2><i class="fas fa-key"></i> Player Login</h2>
+    <input type="text" id="loginSquad" placeholder="Squad Name" required>
+    <div class="pwd-field">
+        <input type="password" id="loginPassword" placeholder="Submission Password" required>
+        <button type="button" class="pwd-toggle" data-target="loginPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+    </div>
+    <div class="modal-btns"><button id="closeLoginModalBtn" class="btn-danger">Cancel</button><button id="submitLoginBtn"><i class="fas fa-sign-in-alt"></i> Login</button></div>
+    <div id="loginMessage" style="margin-top:10px;font-size:0.82rem"></div>
+</div></div>
+
+<div id="adminModal" class="modal"><div class="modal-box">
+    <h2 id="adminModalTitle"><i class="fas fa-lock"></i> Admin Login</h2>
+    <p id="adminModalHint" style="font-size:0.85rem;color:var(--ef-muted);margin:-12px 0 16px;line-height:1.45"></p>
+    <div id="adminLoginPanel">
+        <div class="pwd-field">
+            <input type="password" id="adminPasswordInput" placeholder="Admin password" autocomplete="current-password">
+            <button type="button" class="pwd-toggle" data-target="adminPasswordInput" aria-label="Show password"><i class="fas fa-eye"></i></button>
+        </div>
+    </div>
+    <div id="adminSetupPanel" style="display:none">
+        <div class="pwd-field">
+            <input type="password" id="adminNewPassword" placeholder="New admin password (min 6 characters)" autocomplete="new-password">
+            <button type="button" class="pwd-toggle" data-target="adminNewPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+        </div>
+        <div class="pwd-field">
+            <input type="password" id="adminConfirmPassword" placeholder="Confirm admin password" autocomplete="new-password">
+            <button type="button" class="pwd-toggle" data-target="adminConfirmPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+        </div>
+    </div>
+    <div class="modal-btns"><button type="button" id="closeAdminModalBtn" class="btn-danger">Cancel</button><button type="button" id="submitAdminLogin">Login</button></div>
+    <p id="adminForgotHint" style="display:none;margin-top:10px;font-size:0.75rem;color:var(--ef-muted);line-height:1.4">Forgot password? Stop the server, open <strong>database.json</strong>, set <code>admin.passwordHash</code> to <code>null</code>, save, restart — then create a new password.</p>
+    <div id="adminLoginMessage" style="margin-top:10px;font-size:0.82rem"></div>
+</div></div>
+
+<div id="teamsModal" class="modal"><div class="modal-box" style="max-width:700px">
+    <h2><i class="fas fa-users"></i> All Teams</h2>
+    <input type="text" id="teamSearch" placeholder="Search squad..." style="margin-bottom:16px">
+    <div id="teamsListContainer"></div>
+    <div class="modal-btns"><button id="closeTeamsModalBtn">Close</button></div>
+</div></div>
+
+<div id="standingModal" class="modal"><div class="modal-box" style="max-width:900px">
+    <h2><i class="fas fa-chart-line"></i> Leaderboard</h2>
+    <div id="standingModalContent"></div>
+    <div class="modal-btns"><button id="closeStandingModalBtn">Close</button></div>
+</div></div>
+
+<div id="prizeModal" class="modal"><div class="modal-box">
+    <h2>🏆 Prize Pool</h2>
+    <div style="display:grid;gap:12px;margin-bottom:20px">
+        <div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);border-radius:6px;padding:16px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Bebas Neue';font-size:1.4rem;letter-spacing:3px;color:var(--ef-gold)">🥇 CHAMPION</span>
+            <span style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.2rem;color:var(--ef-gold)">$1000</span>
+        </div>
+        <div style="background:rgba(192,192,192,0.05);border:1px solid rgba(192,192,192,0.2);border-radius:6px;padding:16px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Bebas Neue';font-size:1.3rem;letter-spacing:3px;color:#C0C0C0">🥈 RUNNER-UP</span>
+            <span style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.1rem;color:#C0C0C0">$500</span>
+        </div>
+        <div style="background:rgba(205,127,50,0.05);border:1px solid rgba(205,127,50,0.2);border-radius:6px;padding:16px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'Bebas Neue';font-size:1.2rem;letter-spacing:3px;color:#CD7F32">🥉 SEMI-FINAL</span>
+            <span style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:1rem;color:#CD7F32">$200</span>
+        </div>
+    </div>
+    <div class="modal-btns"><button id="closePrizeModalBtn">Close</button></div>
+</div></div>
+
+<div id="contactModal" class="modal"><div class="modal-box">
+    <h2><i class="fas fa-envelope"></i> Contact</h2>
+    <p style="color:var(--ef-muted);margin-bottom:8px">Email: <span style="color:var(--ef-lime)">support@efootballarena.com</span></p>
+    <p style="color:var(--ef-muted)">Discord: <span style="color:var(--ef-cyan)">eFootball Arena</span></p>
+    <div class="modal-btns"><button id="closeContactModalBtn">Close</button></div>
+</div></div>
+
+<div id="requestMatchModal" class="modal"><div class="modal-box">
+    <h2><i class="fas fa-handshake"></i> Request Match</h2>
+    <form id="requestMatchForm">
+        <input id="requestSquad" placeholder="Your Squad" required>
+        <input id="requestOpponent" placeholder="Opponent Squad" required>
+        <input id="requestDate" placeholder="Preferred Date/Time">
+        <textarea id="requestMessage" placeholder="Message" rows="3" style="width:100%;resize:vertical"></textarea>
+        <div class="modal-btns"><button type="button" id="closeRequestModalBtn" class="btn-danger">Cancel</button><button type="submit">Send Request</button></div>
+    </form>
+    <div id="requestResult" style="margin-top:10px;font-size:0.82rem"></div>
+</div></div>
+
+<!-- ================================================================ MAIN APP -->
+<div id="mainApp" class="main-app">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <div class="topbar-logo">
+            <img class="ef-logo-topbar" src="images/img1.jpeg" alt="eFootball">
+            <div>
+                <div class="topbar-title">eFOOTBALL ARENA</div>
+                <div class="topbar-subtitle">Live Tournaments</div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="pill" id="backToHeroBtn"><i class="fas fa-arrow-left"></i> Back</div>
+            <button id="adminLogoutBtn" class="btn-sm btn-danger" style="display:none"><i class="fas fa-shield-alt"></i> Admin Logout</button>
+            <div class="pill pill-lime" id="userDisplay"><i class="fas fa-user"></i> Not logged in</div>
+            <button id="userLogoutBtn" class="btn-sm btn-danger" style="display:none"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            <div class="badge">SEASON 1</div>
+        </div>
+    </div>
+
+    <!-- NAVBAR -->
+    <div class="navbar">
+        <div class="nav-item" data-section="teams"><i class="fas fa-users"></i> Teams</div>
+        <div class="nav-item" data-section="standing"><i class="fas fa-chart-line"></i> Standing</div>
+        <div class="nav-item" data-section="prize"><i class="fas fa-gift"></i> Prize</div>
+        <div class="nav-item" data-section="contact"><i class="fas fa-phone-alt"></i> Contact</div>
+        <div class="nav-item" data-section="request"><i class="fas fa-handshake"></i> Request Match</div>
+    </div>
+
+    <!-- MARQUEE -->
+    <div class="marquee-strip">
+        <span class="marquee-inner">⚡ FEARLESS ME ⚡ &nbsp;&nbsp;&nbsp; KONAMI eFOOTBALL SPIRIT &nbsp;&nbsp;&nbsp; ⚡ LIVE TOURNAMENTS &nbsp;&nbsp;&nbsp; GLOBAL RIVALS &nbsp;&nbsp;&nbsp; ⚡ FEARLESS ME ⚡</span>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+        <div class="two-col">
+
+            <!-- LEFT COL -->
+            <div>
+                <!-- Online -->
+                <div class="card">
+                    <div class="card-head"><h3><i class="fas fa-circle" style="color:var(--ef-lime);font-size:0.6rem"></i>&nbsp; Live Arena</h3><span id="onlineCount" style="font-size:0.78rem;color:var(--ef-muted)">0 online</span></div>
+                    <div class="card-body"><div id="onlinePlayersList"></div></div>
+                </div>
+
+                <!-- Live Feed -->
+                <div class="card">
+                    <div class="card-head"><h3><i class="fas fa-rss"></i>&nbsp; Live Feed</h3></div>
+                    <div class="card-body">
+                        <div id="liveFeedContainer" style="max-height:280px;overflow-y:auto"></div>
+                        <div id="adminPostFeed" class="admin-only" style="margin-top:12px">
+                            <div class="flex-row">
+                                <input type="text" id="feedMessage" placeholder="Post announcement..." style="flex:1">
+                                <button id="postFeedBtn"><i class="fas fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COL -->
+            <div id="standingSection">
+                <!-- Leaderboard -->
+                <div class="card" id="homeSection">
+                    <div class="card-head">
+                        <h3><i class="fas fa-trophy"></i>&nbsp; Leaderboard</h3>
+                        <span id="lbSubtitle" style="font-size:0.75rem;color:var(--ef-muted)">Season 1</span>
+                    </div>
+                    <div class="card-body tbl-wrap">
+                        <table class="ef-table" id="leaderboardTable">
+                            <thead><tr>
+                                <th>#</th><th>Squad</th><th>Manager</th><th>Country</th>
+                                <th>Pld</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th>
+                            </tr></thead>
+                            <tbody id="leaderboardTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Fixtures -->
+                <div class="card" id="leaguesSection">
+                    <div class="card-head"><h3><i class="fas fa-calendar-alt"></i>&nbsp; Fixtures & Results</h3></div>
+                    <div class="card-body"><div id="fixturesTableContainer"></div></div>
+                </div>
+
+                <!-- Submit Result -->
+                <div id="submitResultCard" class="card" style="display:none">
+                    <div class="card-head"><h3><i class="fas fa-camera"></i>&nbsp; Submit Result</h3></div>
+                    <div class="card-body">
+                        <select id="proposalMatchSelect" style="width:100%;margin-bottom:12px"><option value="">Select a fixture</option></select>
+                        <div class="flex-row" style="margin-bottom:12px">
+                            <input type="number" id="homeScoreInput" placeholder="Home" style="width:80px">
+                            <span style="color:var(--ef-muted)">–</span>
+                            <input type="number" id="awayScoreInput" placeholder="Away" style="width:80px">
+                        </div>
+                        <div class="flex-row" style="margin-bottom:12px">
+                            <input type="file" id="screenshotInput" accept="image/*" style="flex:1">
+                            <button id="ocrAutoFillBtn" class="btn-sm"><i class="fas fa-magic"></i> OCR</button>
+                        </div>
+                        <button id="submitProposalBtn" style="width:100%"><i class="fas fa-upload"></i> Submit for Approval</button>
+                        <div id="ocrResult" style="margin-top:8px;font-size:0.8rem;color:var(--ef-muted)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMIN SECTIONS -->
+        <div id="adminSections" class="admin-only">
+            <div class="card card-pending-verify" id="pendingRegistrationsCard">
+                <div class="card-head">
+                    <h3><i class="fas fa-user-clock"></i>&nbsp; Pending Squads — Verify Payment<span id="pendingRegBadge"></span></h3>
+                    <button type="button" class="btn-sm" id="refreshPendingRegBtn" title="Refresh list"><i class="fas fa-sync"></i></button>
+                </div>
+                <div class="card-body"><div id="pendingRegistrationsContainer"></div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-trophy"></i>&nbsp; Tournament Management</h3></div>
+                <div class="card-body">
+                    <div class="flex-row" style="margin-bottom:16px">
+                        <select id="tournamentFormatSelect"><option value="league">League</option><option value="knockout">Knockout</option></select>
+                        <button id="createTournamentBtn"><i class="fas fa-plus"></i> Create</button>
+                        <button id="regenerateFixturesBtn"><i class="fas fa-sync"></i> Regenerate</button>
+                        <span style="color:var(--ef-muted);font-size:0.85rem">Active: <span id="activeTournamentName" style="color:var(--ef-lime)">None</span></span>
+                    </div>
+                    <div id="tournamentStandingsArea"></div>
+                    <div class="flex-row" style="margin-top:16px">
+                        <button id="generateReportBtn"><i class="fas fa-file-pdf"></i> PDF Report</button>
+                        <button id="certificateWinnerBtn"><i class="fas fa-award"></i> Certificate</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-user-cog"></i>&nbsp; Player Management</h3></div>
+                <div class="card-body"><div id="playerListContainer"></div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-clock"></i>&nbsp; Pending Approvals</h3></div>
+                <div class="card-body"><div id="pendingResultsContainer"></div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-images"></i>&nbsp; Media & Background</h3></div>
+                <div class="card-body">
+                    <div class="flex-row" style="margin-bottom:12px">
+                        <input type="text" id="mediaTitle" placeholder="Title" style="flex:1">
+                        <input type="url" id="mediaUrl" placeholder="URL" style="flex:2">
+                        <select id="mediaType"><option>photo</option><option>video</option><option>poster</option></select>
+                        <button id="addMediaBtn"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="mediaGallery" class="media-grid" style="margin-bottom:16px"></div>
+                    <div class="flex-row">
+                        <input type="text" id="bgUrlInput" placeholder="Background image URL" style="flex:1">
+                        <button id="setUrlBgBtn">Set BG</button>
+                        <label style="cursor:pointer;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:8px 14px;font-size:0.85rem">Upload<input type="file" id="bgFileInput" accept="image/*" style="display:none"></label>
+                        <button id="resetBgBtn" class="btn-danger"><i class="fas fa-times"></i> Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-shield-alt"></i>&nbsp; Admin Security</h3></div>
+                <div class="card-body">
+                    <p style="font-size:0.85rem;color:var(--ef-muted);margin-bottom:14px">Password is stored securely in <strong>database.json</strong> on the server. Change it anytime below.</p>
+                    <div class="pwd-field">
+                        <input type="password" id="adminCurrentPassword" placeholder="Current admin password">
+                        <button type="button" class="pwd-toggle" data-target="adminCurrentPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="pwd-field">
+                        <input type="password" id="adminChangeNewPassword" placeholder="New password (min 6 characters)">
+                        <button type="button" class="pwd-toggle" data-target="adminChangeNewPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="pwd-field">
+                        <input type="password" id="adminChangeConfirmPassword" placeholder="Confirm new password">
+                        <button type="button" class="pwd-toggle" data-target="adminChangeConfirmPassword" aria-label="Show password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <button type="button" id="changeAdminPasswordBtn" style="width:100%"><i class="fas fa-key"></i> Update Admin Password</button>
+                    <p id="adminSecurityMessage" style="margin-top:10px;font-size:0.82rem;color:var(--ef-lime)"></p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-mobile-alt"></i>&nbsp; Payment Numbers (Admin)</h3></div>
+                <div class="card-body">
+                    <p style="font-size:0.85rem;color:var(--ef-muted);margin-bottom:14px">Set the mobile money / company numbers players must pay to. Registrations stay pending until you verify payment.</p>
+                    <input type="text" id="paySettingsCompany" placeholder="Company / payee name (e.g. eFootball Arena)">
+                    <input type="text" id="paySettingsMpesa" placeholder="M-Pesa payment ID (e.g. 987465)">
+                    <input type="text" id="paySettingsTigo" placeholder="Tigo Pesa number">
+                    <input type="text" id="paySettingsAirtel" placeholder="Airtel Money number">
+                    <input type="number" id="paySettingsFee" placeholder="Registration fee (TZS)" min="1">
+                    <button type="button" id="savePaymentSettingsBtn" style="width:100%;margin-top:4px"><i class="fas fa-save"></i> Save Payment Settings</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><h3><i class="fas fa-credit-card"></i>&nbsp; Verified Payments</h3></div>
+                <div class="card-body"><div id="paymentAuditContainer"></div></div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4><i class="fas fa-futbol"></i> eFootball Arena</h4>
+                    <p>The ultimate platform for competitive eFootball tournaments. Join the global community and rise to the top.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Quick Links</h4>
+                    <a href="#" id="footerTeamsLink">Teams</a>
+                    <a href="#" id="footerStandingLink">Leaderboard</a>
+                    <a href="#" id="footerPrizeLink">Prize Pool</a>
+                    <a href="#" id="footerContactLink">Contact</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Community</h4>
+                    <div class="social-row">
+                        <a href="#" class="soc-icon"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="soc-icon"><i class="fab fa-discord"></i></a>
+                        <a href="#" class="soc-icon"><i class="fab fa-youtube"></i></a>
+                        <a href="#" class="soc-icon"><i class="fab fa-instagram"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">&copy; 2025 eFootball Arena. All rights reserved. Built with <i class="fas fa-heart" style="color:var(--ef-pink)"></i> for the eFootball community</div>
+        </div>
+    </div>
+</div>
+
+<!-- CHAT -->
+<div id="chatPanel" class="chat-panel" style="display:none">
+    <div class="chat-header">
+        <span><i class="fas fa-comments"></i> Global Chat</span>
+        <span id="toggleChat" style="color:var(--ef-muted)">−</span>
+    </div>
+    <div id="chatMessages" class="chat-msgs"></div>
+    <div class="chat-in">
+        <input type="text" id="chatInput" placeholder="@Squad to ping..." style="flex:1">
+        <button id="sendChatBtn" class="btn-sm"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
+<script>
+(function() {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+
+    async function init() {
+        let players = [], tournaments = [], matches = [], liveFeeds = [], mediaItems = [], activeTournamentId = null;
+        let isAdmin = false, loggedInPlayer = null;
+        let adminToken = sessionStorage.getItem('ef_admin_token') || '';
+        let apiOnline = false;
+        const ADMIN_MIN_PASSWORD_LEN = 6;
+        let chatMessages = [];
+        let pendingResults = [];
+        let matchRequests = [];
+        let pendingRegistrations = [];
+        let paymentSettingsCache = null;
+        let hasAdminPassword = false;
+
+        const DEFAULT_PAYMENT_SETTINGS = {
+            companyName: 'eFootball Arena',
+            mpesaNumber: '987465',
+            tigoNumber: '',
+            airtelNumber: '',
+            registrationFee: 10000,
+            currency: 'TZS',
+            paymentNote: 'Use your squad name as the payment reference/message'
+        };
+
+        function getApiBase() {
+            if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                return '';
+            }
+            const host = window.location.hostname || 'localhost';
+            const port = (window.location.port && window.location.port !== '80' && window.location.port !== '443')
+                ? window.location.port : '3000';
+            return `http://${host}:${port}`;
+        }
+
+        function apiUrl(path) {
+            return getApiBase() + path;
+        }
+
+        function setServerOnline(online, message) {
+            apiOnline = online;
+            const bar = document.getElementById('serverStatusBar');
+            if (!bar) return;
+            if (online) {
+                bar.style.display = 'none';
+                document.body.classList.remove('server-offline');
+            } else {
+                bar.style.display = 'block';
+                document.body.classList.add('server-offline');
+                const link = apiUrl('/');
+                bar.innerHTML = message || `Server not connected. In this folder run <code>npm start</code>, then open <a href="${link}">${link}</a> (do not open index.html as a file).`;
+            }
+        }
+
+        async function checkServerHealth() {
+            try {
+                const res = await fetch(apiUrl('/api/health'), { method: 'GET' });
+                return res.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function api(method, url, body, useAdmin) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (useAdmin && adminToken) headers['X-Admin-Token'] = adminToken;
+            const opts = { method, headers };
+            const sendBody = body != null && method !== 'GET' && method !== 'HEAD';
+            if (sendBody) opts.body = JSON.stringify(body);
+            const res = await fetch(apiUrl(url), opts);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                if (res.status === 401 && useAdmin && adminToken) {
+                    adminToken = '';
+                    sessionStorage.removeItem('ef_admin_token');
+                    isAdmin = false;
+                    document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('visible'));
+                    document.getElementById('adminLogoutBtn').style.display = 'none';
+                }
+                const err = new Error(data.error || 'Request failed');
+                err.needsSetup = !!data.needsSetup;
+                err.status = res.status;
+                throw err;
+            }
+            return data;
+        }
+
+        async function refreshAdminStatus() {
+            if (!apiOnline) return;
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (adminToken) headers['X-Admin-Token'] = adminToken;
+                const res = await fetch(apiUrl('/api/admin/status'), { headers });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    hasAdminPassword = !!data.hasAdminPassword;
+                    if (adminToken && !data.tokenValid) {
+                        adminToken = '';
+                        sessionStorage.removeItem('ef_admin_token');
+                        isAdmin = false;
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function getPaymentSettings() {
+            let settings = { ...DEFAULT_PAYMENT_SETTINGS, ...(paymentSettingsCache || {}) };
+            if (!settings.mpesaNumber) settings.mpesaNumber = DEFAULT_PAYMENT_SETTINGS.mpesaNumber;
+            return settings;
+        }
+
+        function getPayNumberForProvider(provider, settings) {
+            if (provider === 'M-Pesa') return settings.mpesaNumber;
+            if (provider === 'Tigo Pesa') return settings.tigoNumber;
+            if (provider === 'Airtel Money') return settings.airtelNumber;
+            return '';
+        }
+
+        async function refreshPendingRegistrations() {
+            if (!isAdmin || !adminToken) {
+                renderPendingRegistrations();
+                return;
+            }
+            try {
+                let data = await api('GET', '/api/admin/pending-registrations', undefined, true);
+                pendingRegistrations = data.pending || [];
+                renderPendingRegistrations();
+            } catch (e) {
+                console.warn('Pending registrations load failed', e);
+                if (isAdmin) showToast(e.message || 'Could not load pending squads');
+            }
+        }
+
+        function squadExistsAnywhere(squad) {
+            let s = squad.toLowerCase();
+            return players.some(p => p.squad.toLowerCase() === s)
+                || pendingRegistrations.some(r => r.squad.toLowerCase() === s && r.status === 'pending');
+        }
+
+        function showToast(msg) {
+            let t = document.createElement('div');
+            t.className = 'toast'; t.innerText = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3200);
+        }
+
+        async function saveData() {
+            if (!apiOnline) return;
+            try {
+                await api('PUT', '/api/game-state', {
+                    tournaments,
+                    matches,
+                    liveFeeds,
+                    mediaItems,
+                    activeTournamentId,
+                    matchRequests,
+                    pendingResults,
+                    chatMessages
+                }, isAdmin);
+            } catch (e) {
+                console.warn('Save failed', e);
+            }
+        }
+
+        async function loadData() {
+            if (!(await checkServerHealth())) {
+                setServerOnline(false);
+                return;
+            }
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (adminToken) headers['X-Admin-Token'] = adminToken;
+                const res = await fetch(apiUrl('/api/bootstrap'), { headers });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || 'Failed to load data');
+                setServerOnline(true);
+                players = data.players || [];
+                tournaments = data.tournaments || [];
+                matches = data.matches || [];
+                liveFeeds = data.liveFeeds || [];
+                mediaItems = data.mediaItems || [];
+                activeTournamentId = data.activeTournamentId;
+                matchRequests = data.matchRequests || [];
+                pendingResults = data.pendingResults || [];
+                chatMessages = data.chatMessages || chatMessages;
+                paymentSettingsCache = data.paymentSettings || DEFAULT_PAYMENT_SETTINGS;
+                hasAdminPassword = !!data.hasAdminPassword;
+                if (Array.isArray(data.pendingForAdmin) && adminToken) {
+                    pendingRegistrations = data.pendingForAdmin;
+                }
+                if (adminToken) {
+                    await refreshAdminStatus();
+                    if (adminToken) {
+                        isAdmin = true;
+                        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
+                        document.getElementById('adminLogoutBtn').style.display = 'inline-flex';
+                        await refreshPendingRegistrations();
+                        renderPendingRegistrations();
+                    }
+                }
+            } catch (e) {
+                setServerOnline(false);
+                hasAdminPassword = false;
+                console.error(e);
+            }
+            recalcStats();
+            renderAll();
+        }
+
+        function getSquadName(pid) { let p = players.find(pl => pl.id === pid); return p ? p.squad : 'Unknown'; }
+
+        function recalcStats() {
+            players.forEach(p => { p.wins = 0; p.draws = 0; p.losses = 0; p.points = 0; p.matchesPlayed = 0; });
+            matches.forEach(m => {
+                if (m.status === 'played') {
+                    const p1 = players.find(pl => pl.id === m.player1);
+                    const p2 = players.find(pl => pl.id === m.player2);
+                    if (p1 && p2) {
+                        p1.matchesPlayed++; p2.matchesPlayed++;
+                        if (m.winner === m.player1) { p1.wins++; p2.losses++; p1.points += 3; }
+                        else if (m.winner === m.player2) { p2.wins++; p1.losses++; p2.points += 3; }
+                        else if (m.draw) { p1.draws++; p2.draws++; p1.points += 1; p2.points += 1; }
+                    }
+                }
+            });
+            saveData();
+        }
+
+        function addMatchResult(matchId, score1, score2, autoFeed = true) {
+            let mtch = matches.find(m => m.id === matchId);
+            if (!mtch || mtch.status !== 'scheduled') return false;
+            mtch.score1 = score1; mtch.score2 = score2;
+            if (score1 > score2) mtch.winner = mtch.player1;
+            else if (score2 > score1) mtch.winner = mtch.player2;
+            else { mtch.winner = null; mtch.draw = true; }
+            mtch.status = 'played';
+            recalcStats();
+            updateTournamentStandings(mtch.tournamentId);
+            saveData(); renderAll();
+            if (autoFeed) addFeedAuto(`📊 ${getSquadName(mtch.player1)} ${score1}–${score2} ${getSquadName(mtch.player2)}`);
+            return true;
+        }
+
+        function addFeedAuto(content) {
+            liveFeeds.unshift({ id: Date.now() + Math.random(), content, createdAt: new Date().toISOString() });
+            if (liveFeeds.length > 30) liveFeeds.pop();
+            saveData(); renderLiveFeed(); showToast(content);
+        }
+
+        function generateFixtures(tournament) {
+            if (!tournament) return;
+            matches = matches.filter(m => m.tournamentId !== tournament.id);
+            const ids = tournament.playersIds;
+            if (ids.length < 2) return;
+            const now = new Date();
+            if (tournament.format === 'league') {
+                let idx = 0;
+                for (let i = 0; i < ids.length; i++) for (let j = i+1; j < ids.length; j++) {
+                    let d = new Date(now); d.setDate(now.getDate() + idx);
+                    matches.push({ id: `m_${tournament.id}_${i}_${j}`, tournamentId: tournament.id, player1: ids[i], player2: ids[j], score1: null, score2: null, winner: null, status: 'scheduled', scheduledDate: d.toISOString() });
+                    idx++;
+                }
+                tournament.standings = ids.map(pid => ({ playerId: pid, points: 0, played: 0, wins: 0, draws: 0, losses: 0 }));
+            } else {
+                let list = [...ids]; if (list.length % 2 !== 0) list.push(null);
+                for (let i = 0; i < list.length; i += 2) {
+                    let d = new Date(now); d.setDate(now.getDate() + Math.floor(i/2));
+                    matches.push({ id: `ko_${tournament.id}_r0_${i}`, tournamentId: tournament.id, round: 0, player1: list[i], player2: list[i+1], score1: null, score2: null, winner: null, status: 'scheduled', scheduledDate: d.toISOString() });
+                }
+                tournament.knockoutMatches = [{ round: 0, matchIds: [] }];
+            }
+            saveData();
+        }
+
+        function createTournament(format) {
+            if (players.length < 2) { alert("Need at least 2 players"); return; }
+            let id = 't_' + Date.now();
+            let t = { id, name: `eFoot ${format.toUpperCase()} Cup`, format, playersIds: players.map(p => p.id), standings: [], knockoutMatches: [] };
+            tournaments.push(t); activeTournamentId = t.id;
+            generateFixtures(t); saveData(); renderAll();
+            addFeedAuto(`🏁 New ${format} tournament created`);
+        }
+
+        function updateTournamentStandings(tournamentId) {
+            let tour = tournaments.find(t => t.id === tournamentId);
+            if (!tour || tour.format !== 'league') return;
+            let map = new Map();
+            tour.playersIds.forEach(pid => map.set(pid, { played:0, wins:0, draws:0, losses:0, points:0 }));
+            matches.filter(m => m.tournamentId === tournamentId && m.status === 'played').forEach(m => {
+                let s1 = map.get(m.player1), s2 = map.get(m.player2);
+                if (s1 && s2) {
+                    s1.played++; s2.played++;
+                    if (m.winner === m.player1) { s1.wins++; s2.losses++; s1.points+=3; }
+                    else if (m.winner === m.player2) { s2.wins++; s1.losses++; s2.points+=3; }
+                    else if (m.draw) { s1.draws++; s2.draws++; s1.points+=1; s2.points+=1; }
+                }
+            });
+            tour.standings = Array.from(map.entries()).map(([id, stat]) => ({ playerId: id, ...stat }));
+            saveData();
+        }
+
+        function renderLeaderboard() {
+            let tbody = document.getElementById('leaderboardTbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (!players.length) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--ef-muted);padding:24px">No squads yet — register and get verified by admin to appear here.</td></tr>';
+                return;
+            }
+            let sorted = [...players].sort((a,b) => b.points - a.points);
+            sorted.forEach((p, i) => {
+                let rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+                let row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><span class="rank-badge ${rankClass}">${i+1}</span></td>
+                    <td><div style="display:flex;align-items:center;gap:8px"><img src="${p.avatar||'https://via.placeholder.com/34'}" class="av" onerror="this.src='https://via.placeholder.com/34'"><span style="font-weight:600">${p.squad}</span></div></td>
+                    <td style="color:var(--ef-muted)">${p.name}</td>
+                    <td style="color:var(--ef-muted)">${p.country}</td>
+                    <td>${p.matchesPlayed}</td>
+                    <td style="color:#4ade80">${p.wins}</td>
+                    <td style="color:var(--ef-muted)">${p.draws}</td>
+                    <td style="color:var(--ef-pink)">${p.losses}</td>
+                    <td><span class="pts-badge">${p.points}</span></td>
+                    <td><span class="online-dot ${p.isOnline?'on':''}"></span></td>`;
+            });
+        }
+
+        function renderOnlinePlayers() {
+            let container = document.getElementById('onlinePlayersList');
+            if (!container) return;
+            let online = players.filter(p => p.isOnline);
+            document.getElementById('onlineCount').textContent = `${online.length} online`;
+            container.innerHTML = online.map(p => `<div class="online-badge"><span class="online-dot on"></span>${p.squad}</div>`).join('') || '<i style="color:var(--ef-muted);font-size:0.85rem">No players online</i>';
+        }
+
+        function renderLiveFeed() {
+            let c = document.getElementById('liveFeedContainer');
+            if (!c) return;
+            c.innerHTML = liveFeeds.slice(0,10).map(f => `<div class="feed-item"><i class="fas fa-bolt" style="color:var(--ef-lime);margin-right:6px"></i>${f.content} <small>${new Date(f.createdAt).toLocaleTimeString()}</small>${isAdmin?`<button class="btn-sm btn-danger" style="padding:2px 8px;margin-left:8px" onclick="deleteFeed('${f.id}')"><i class="fas fa-trash"></i></button>`:''}</div>`).join('');
+        }
+
+        window.deleteFeed = function(id) { liveFeeds = liveFeeds.filter(f => f.id != id); saveData(); renderLiveFeed(); showToast("Deleted"); };
+
+        function renderTournamentUI() {
+            let tour = tournaments.find(t => t.id === activeTournamentId);
+            let area = document.getElementById('tournamentStandingsArea');
+            if (!area) return;
+            if (!tour) { area.innerHTML = '<i style="color:var(--ef-muted)">No active tournament</i>'; document.getElementById('activeTournamentName').innerText = 'None'; return; }
+            document.getElementById('activeTournamentName').innerText = tour.name;
+            if (tour.format === 'league') {
+                let html = '<div class="tbl-wrap"><table class="ef-table"><thead><tr><th>#</th><th>Squad</th><th>Pld</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>';
+                [...tour.standings].sort((a,b)=>b.points-a.points).forEach((stat, i) => {
+                    let pl = players.find(p=>p.id===stat.playerId);
+                    if (pl) html += `<tr><td><span class="rank-badge ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n'}">${i+1}</span></td><td><strong>${pl.squad}</strong></td><td>${stat.played}</td><td>${stat.wins}</td><td>${stat.draws}</td><td>${stat.losses}</td><td><span class="pts-badge">${stat.points}</span></td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+                area.innerHTML = html;
+            } else {
+                let html = '<h4 style="margin-bottom:12px;font-family:Bebas Neue;letter-spacing:3px;color:var(--ef-cyan)">Knockout Bracket</h4>';
+                let koM = matches.filter(m => m.tournamentId === tour.id);
+                let rounds = [...new Set(koM.map(m => m.round))].sort();
+                rounds.forEach(r => {
+                    html += `<div style="margin-bottom:12px"><strong style="color:var(--ef-lime);font-family:'Exo 2',sans-serif;font-size:0.7rem;letter-spacing:2px">ROUND ${r+1}</strong></div>`;
+                    koM.filter(m => m.round===r).forEach(m => {
+                        html += `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:4px;padding:10px 14px;margin-bottom:6px;display:flex;gap:12px;align-items:center">${m.player1?getSquadName(m.player1):'BYE'} <span style="color:var(--ef-muted)">vs</span> ${m.player2?getSquadName(m.player2):'BYE'} <span class="badge-status ${m.status==='played'?'bs-played':'bs-scheduled'}">${m.status==='played'?`${m.score1}–${m.score2}`:'Scheduled'}</span></div>`;
+                    });
+                });
+                area.innerHTML = html;
+            }
+        }
+
+        function renderFixturesTable() {
+            let container = document.getElementById('fixturesTableContainer');
+            let tour = tournaments.find(t => t.id === activeTournamentId);
+            if (!tour || matches.filter(m => m.tournamentId === tour.id).length === 0) {
+                container.innerHTML = '<i style="color:var(--ef-muted);font-size:0.85rem">No fixtures yet. Create a tournament to begin.</i>'; return;
+            }
+            let tourMatches = matches.filter(m => m.tournamentId === tour.id);
+            let html = `<div class="tbl-wrap"><table class="ef-table"><thead><tr><th>Home</th><th></th><th>Away</th><th>Result</th><th>Deadline</th><th>Status</th><th>Action</th></tr></thead><tbody>`;
+            tourMatches.forEach(m => {
+                let home = getSquadName(m.player1), away = getSquadName(m.player2);
+                let result = m.status==='played' ? `<span class="score-vs"><span class="score-num">${m.score1}</span><span class="score-sep">–</span><span class="score-num">${m.score2}</span></span>` : '—';
+                let deadline = m.scheduledDate ? new Date(m.scheduledDate).toLocaleDateString() : '—';
+                let statusBadge = m.status==='played' ? '<span class="badge-status bs-played">Played</span>' : '<span class="badge-status bs-scheduled">Scheduled</span>';
+                let hasPending = pendingResults.some(p => p.matchId === m.id);
+                html += `<tr><td><strong>${home}</strong></td><td style="color:var(--ef-muted)">vs</td><td><strong>${away}</strong></td><td>${result}</td><td style="color:var(--ef-muted)">${deadline}</td><td>${statusBadge}</td><td>`;
+                if (loggedInPlayer && m.status === 'scheduled') {
+                    if (loggedInPlayer.squad === home && !hasPending) html += `<button class="btn-sm" onclick="sendRequest('${m.id}','${home}','${away}')">Request</button> `;
+                    if (loggedInPlayer.squad === away && !hasPending && matchRequests.some(r=>r.matchId===m.id&&r.from===home&&r.status==='pending')) html += `<button class="btn-sm" onclick="acceptRequest('${m.id}','${home}','${away}')">Accept</button> `;
+                }
+                if (hasPending) html += `<span class="badge-status bs-pending">Pending</span>`;
+                else if (m.status !== 'played' && isAdmin) html += `<div class="flex-row"><input type="number" id="score1_${m.id}" placeholder="H" style="width:55px"><input type="number" id="score2_${m.id}" placeholder="A" style="width:55px"><button class="btn-sm" onclick="submitMatchResult('${m.id}')">Submit</button></div>`;
+                else if (m.status === 'played') html += `<span style="color:var(--ef-muted);font-size:0.8rem">Done</span>`;
+                html += `</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        }
+
+        window.submitMatchResult = function(matchId) {
+            if (!isAdmin) return showToast("Admin only");
+            let s1 = parseInt(document.getElementById(`score1_${matchId}`)?.value)||0;
+            let s2 = parseInt(document.getElementById(`score2_${matchId}`)?.value)||0;
+            addMatchResult(matchId, s1, s2);
+        };
+        window.sendRequest = function(matchId, fromSquad, toSquad) {
+            if (!loggedInPlayer) return showToast("Login first");
+            if (loggedInPlayer.squad !== fromSquad) return showToast("Not your squad");
+            if (matchRequests.find(r=>r.matchId===matchId&&r.from===fromSquad)) return showToast("Already sent");
+            matchRequests.push({ matchId, from: fromSquad, to: toSquad, status: 'pending', timestamp: Date.now() });
+            saveData(); addFeedAuto(`📨 ${fromSquad} wants to play ${toSquad}`); showToast(`Request sent to ${toSquad}`); renderFixturesTable();
+        };
+        window.acceptRequest = function(matchId, fromSquad, toSquad) {
+            if (!loggedInPlayer) return showToast("Login required");
+            if (loggedInPlayer.squad !== toSquad) return showToast("Only opponent can accept");
+            let req = matchRequests.find(r=>r.matchId===matchId&&r.from===fromSquad&&r.to===toSquad&&r.status==='pending');
+            if (!req) return showToast("No pending request");
+            req.status = 'accepted'; saveData(); addFeedAuto(`✅ ${fromSquad} vs ${toSquad} accepted`); showToast("Match accepted"); renderFixturesTable();
+        };
+
+        async function loginPlayer(squad, password) {
+            if (!apiOnline) {
+                setServerOnline(false);
+                return false;
+            }
+            try {
+                let data = await api('POST', '/api/auth/login', { squad, password });
+                loggedInPlayer = data.player;
+                let p = players.find(pl => pl.id === loggedInPlayer.id);
+                if (p) p.isOnline = true;
+                saveData();
+                document.getElementById('userDisplay').innerHTML = `<i class="fas fa-user-check"></i> ${loggedInPlayer.squad}`;
+                document.getElementById('userLogoutBtn').style.display = 'inline-flex';
+                document.getElementById('openLoginModalBtn').style.display = 'none';
+                document.getElementById('chatPanel').style.display = 'block';
+                document.getElementById('submitResultCard').style.display = 'block';
+                showToast(`Welcome back, ${loggedInPlayer.squad}!`);
+                renderAll();
+                return true;
+            } catch (e) {
+                showToast(e.message || 'Login failed');
+                return false;
+            }
+        }
+
+        async function logoutPlayer() {
+            if (loggedInPlayer) {
+                try {
+                    if (apiOnline) await api('POST', '/api/auth/logout', { playerId: loggedInPlayer.id });
+                } catch (e) { /* ignore */ }
+                loggedInPlayer.isOnline = false;
+                saveData();
+                loggedInPlayer = null;
+                document.getElementById('mainApp').classList.remove('visible');
+                document.getElementById('fullscreenHero').style.display = 'flex';
+                document.getElementById('userDisplay').innerHTML = '<i class="fas fa-user"></i> Not logged in';
+                document.getElementById('userLogoutBtn').style.display = 'none';
+                document.getElementById('chatPanel').style.display = 'none';
+                document.getElementById('submitResultCard').style.display = 'none';
+                renderAll(); showToast("Logged out");
+            }
+        }
+
+        async function grantAdminSession() {
+            isAdmin = true;
+            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
+            document.getElementById('adminLogoutBtn').style.display = 'inline-flex';
+            renderPendingResults();
+            renderFixturesTable();
+            renderLiveFeed();
+            renderPlayerManagement();
+            loadPaymentSettingsForm();
+            await refreshPendingRegistrations();
+            await displayPaymentAudit();
+            let card = document.getElementById('pendingRegistrationsCard');
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function prepareAdminModal() {
+            let setup = !hasAdminPassword;
+            let loginPanel = document.getElementById('adminLoginPanel');
+            let setupPanel = document.getElementById('adminSetupPanel');
+            let title = document.getElementById('adminModalTitle');
+            let hint = document.getElementById('adminModalHint');
+            let submitBtn = document.getElementById('submitAdminLogin');
+            let msgEl = document.getElementById('adminLoginMessage');
+            let forgotHint = document.getElementById('adminForgotHint');
+            if (loginPanel) loginPanel.style.display = setup ? 'none' : 'block';
+            if (setupPanel) setupPanel.style.display = setup ? 'block' : 'none';
+            if (forgotHint) forgotHint.style.display = setup ? 'none' : 'block';
+            if (title) {
+                title.innerHTML = setup
+                    ? '<i class="fas fa-shield-alt"></i> Set Up Admin'
+                    : '<i class="fas fa-lock"></i> Admin Login';
+            }
+            if (hint) {
+                hint.textContent = setup
+                    ? 'Create your admin password (min 6 characters). Saved in database.json on this server.'
+                    : (apiOnline
+                        ? 'Enter your admin password. Use http://localhost:3000 — not the HTML file directly.'
+                        : 'Server offline. Run: npm start — then open http://localhost:3000');
+            }
+            if (submitBtn) submitBtn.textContent = setup ? 'Create & Enter Arena' : 'Login';
+            if (msgEl) { msgEl.textContent = ''; msgEl.style.color = 'var(--ef-lime)'; }
+            ['adminPasswordInput', 'adminNewPassword', 'adminConfirmPassword'].forEach(id => {
+                let el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        }
+
+        function enterMainAppFromHero() {
+            document.getElementById('fullscreenHero').style.display = 'none';
+            let app = document.getElementById('mainApp');
+            app.style.display = 'block';
+            setTimeout(() => app.classList.add('visible'), 10);
+        }
+
+        async function tryAdminLogin(password, confirmPassword) {
+            let msgEl = document.getElementById('adminLoginMessage');
+            password = (password || '').trim();
+            confirmPassword = (confirmPassword || '').trim();
+            if (!apiOnline) {
+                setServerOnline(false);
+                if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = 'Start server with npm start, then use the link in the red bar above.'; }
+                return false;
+            }
+            try {
+                if (!hasAdminPassword) {
+                    if (!password || password.length < ADMIN_MIN_PASSWORD_LEN) {
+                        let m = 'Password must be at least ' + ADMIN_MIN_PASSWORD_LEN + ' characters';
+                        if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = m; }
+                        showToast(m);
+                        return false;
+                    }
+                    if (password !== confirmPassword) {
+                        if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = 'Passwords do not match'; }
+                        showToast('Passwords do not match');
+                        return false;
+                    }
+                    let data = await api('POST', '/api/admin/setup', { password });
+                    adminToken = data.token;
+                    sessionStorage.setItem('ef_admin_token', adminToken);
+                    hasAdminPassword = true;
+                    showToast('Admin password saved to database');
+                } else {
+                    let data = await api('POST', '/api/admin/login', { password });
+                    adminToken = data.token;
+                    sessionStorage.setItem('ef_admin_token', adminToken);
+                    showToast('Admin access granted');
+                }
+                await grantAdminSession();
+                return true;
+            } catch (e) {
+                if (e.needsSetup || (e.message && e.message.toLowerCase().includes('not set up'))) {
+                    hasAdminPassword = false;
+                    prepareAdminModal();
+                    if (msgEl) { msgEl.style.color = 'var(--ef-lime)'; msgEl.textContent = 'Create a new admin password below.'; }
+                    return false;
+                }
+                if (e.message && e.message.toLowerCase().includes('already set')) {
+                    hasAdminPassword = true;
+                    prepareAdminModal();
+                    if (msgEl) { msgEl.style.color = 'var(--ef-lime)'; msgEl.textContent = 'Password exists — use Login with your password.'; }
+                    return false;
+                }
+                if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = e.message; }
+                showToast(e.message || 'Admin login failed');
+                return false;
+            }
+        }
+
+        async function adminLogout() {
+            try {
+                if (adminToken && apiOnline) await api('POST', '/api/admin/logout', null, true);
+            } catch (e) { /* ignore */ }
+            adminToken = '';
+            sessionStorage.removeItem('ef_admin_token');
+            isAdmin = false;
+            document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('visible'));
+            document.getElementById('adminLogoutBtn').style.display = 'none';
+            showToast("Admin logged out");
+            renderFixturesTable();
+            renderLiveFeed();
+        }
+
+        function loadPaymentSettingsForm() {
+            let s = getPaymentSettings();
+            let el = id => document.getElementById(id);
+            if (el('paySettingsCompany')) el('paySettingsCompany').value = s.companyName || '';
+            if (el('paySettingsMpesa')) el('paySettingsMpesa').value = s.mpesaNumber || '';
+            if (el('paySettingsTigo')) el('paySettingsTigo').value = s.tigoNumber || '';
+            if (el('paySettingsAirtel')) el('paySettingsAirtel').value = s.airtelNumber || '';
+            if (el('paySettingsFee')) el('paySettingsFee').value = s.registrationFee || 10000;
+        }
+
+        function renderRegPaymentInstructions() {
+            let box = document.getElementById('regPaymentInstructions');
+            let provider = document.getElementById('paymentProvider').value;
+            if (!box) return;
+            if (!provider) { box.style.display = 'none'; return; }
+            let s = getPaymentSettings();
+            let payTo = getPayNumberForProvider(provider, s);
+            if (!payTo) {
+                box.style.display = 'block';
+                box.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Admin has not set a payment number for <strong>' + provider + '</strong> yet. Contact admin.';
+                return;
+            }
+            box.style.display = 'block';
+            box.innerHTML = '<div><strong>Pay ' + (s.registrationFee || 0).toLocaleString() + ' ' + (s.currency || 'TZS') + '</strong> via <strong>' + provider + '</strong></div>'
+                + '<div style="margin:8px 0">Send to: <span class="pay-number">' + payTo + '</span>'
+                + (s.companyName ? ' · <span style="color:var(--ef-muted)">' + s.companyName + '</span>' : '') + '</div>'
+                + '<div style="font-size:0.8rem;color:var(--ef-muted)">' + (s.paymentNote || '') + '</div>'
+                + '<div style="font-size:0.8rem;margin-top:6px;color:var(--ef-cyan)">After paying, submit this form. Admin will verify before you can log in.</div>';
+        }
+
+        function renderPendingRegistrations() {
+            let c = document.getElementById('pendingRegistrationsContainer');
+            let badge = document.getElementById('pendingRegBadge');
+            if (!c) return;
+            let pending = pendingRegistrations.filter(r => r.status === 'pending');
+            if (badge) {
+                badge.textContent = pending.length ? ` ${pending.length} waiting` : '';
+                badge.style.display = pending.length ? 'inline' : 'none';
+            }
+            if (!isAdmin) {
+                c.innerHTML = '<i style="color:var(--ef-muted)">Log in as admin to verify squads</i>';
+                return;
+            }
+            if (!pending.length) {
+                c.innerHTML = '<i style="color:var(--ef-muted)">No squads waiting — new registrations will appear here for payment verification.</i>';
+                return;
+            }
+            c.innerHTML = pending.map(r => {
+                let payTo = getPayNumberForProvider(r.provider, getPaymentSettings());
+                return `<div class="pending-reg-item">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+                        <img src="${r.avatar || 'https://via.placeholder.com/48'}" class="av" style="width:48px;height:48px" onerror="this.src='https://via.placeholder.com/48'">
+                        <div style="flex:1;min-width:180px">
+                            <div style="font-weight:700;font-size:1.05rem;color:var(--ef-lime)">${r.squad}</div>
+                            <div style="color:var(--ef-muted);font-size:0.85rem">${r.name} · ${r.country}</div>
+                            <div style="font-size:0.85rem;margin-top:4px"><i class="fas fa-phone"></i> ${r.phone}</div>
+                            <div style="font-size:0.85rem"><i class="fas fa-wallet"></i> ${r.provider} → <strong>${payTo || '—'}</strong></div>
+                            <div style="font-size:0.85rem"><i class="fas fa-receipt"></i> Ref: <strong style="color:var(--ef-cyan)">${r.paymentRef}</strong></div>
+                            <div style="font-size:0.75rem;color:var(--ef-muted);margin-top:4px">Submitted ${new Date(r.submittedAt).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="btn-sm" onclick="verifyPendingRegistration('${r.id}')"><i class="fas fa-check"></i> Verify payment &amp; approve</button>
+                        <button class="btn-sm btn-danger" onclick="rejectPendingRegistration('${r.id}')"><i class="fas fa-times"></i> Reject</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        window.verifyPendingRegistration = async function(id) {
+            if (!isAdmin) return showToast('Admin only');
+            try {
+                let data = await api('POST', '/api/admin/verify-registration/' + id, null, true);
+                await loadData();
+                addFeedAuto(`✅ ${data.player.squad} registered — payment verified by admin`);
+                showToast(`"${data.player.squad}" approved — player can log in now`);
+            } catch (e) {
+                showToast(e.message || 'Could not verify');
+            }
+        };
+
+        window.rejectPendingRegistration = async function(id) {
+            if (!isAdmin) return showToast('Admin only');
+            if (!confirm('Reject this registration?')) return;
+            try {
+                await api('POST', '/api/admin/reject-registration/' + id, null, true);
+                await refreshPendingRegistrations();
+                showToast('Registration rejected');
+            } catch (e) {
+                showToast(e.message || 'Could not reject');
+            }
+        };
+
+        async function displayPaymentAudit() {
+            let c = document.getElementById('paymentAuditContainer');
+            if (!c) return;
+            if (!adminToken) {
+                c.innerHTML = '<i style="color:var(--ef-muted)">Log in as admin to view payments</i>';
+                return;
+            }
+            try {
+                let data = await api('GET', '/api/admin/payments', null, true);
+                let payments = data.payments || [];
+                if (!payments.length) { c.innerHTML = '<i style="color:var(--ef-muted)">No verified payments yet</i>'; return; }
+                c.innerHTML = '<div class="tbl-wrap"><table class="ef-table"><thead><tr><th>Squad</th><th>Provider</th><th>Paid to</th><th>Amount</th><th>Reference</th><th>Date</th></tr></thead><tbody>'
+                    + payments.map(p => `<tr><td>${p.squad}</td><td>${p.provider}</td><td>${p.payToNumber || '—'}</td><td>${(p.amount || 0).toLocaleString()} ${p.currency || 'TZS'}</td><td>${p.paymentRef || '—'}</td><td>${new Date(p.date).toLocaleDateString()}</td></tr>`).join('')
+                    + '</tbody></table></div>';
+            } catch (e) {
+                c.innerHTML = '<i style="color:var(--ef-pink)">Could not load payments</i>';
+            }
+        }
+
+        function renderPlayerManagement() {
+            let c = document.getElementById('playerListContainer');
+            if (!c) return;
+            c.innerHTML = players.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><div style="display:flex;align-items:center;gap:10px"><img src="${p.avatar||'https://via.placeholder.com/34'}" class="av" onerror="this.src='https://via.placeholder.com/34'"><div><div style="font-weight:600">${p.squad}</div><div style="color:var(--ef-muted);font-size:0.8rem">${p.name} · ${p.country}</div></div></div><button class="btn-sm btn-danger" onclick="removePlayer('${p.id}')"><i class="fas fa-trash"></i></button></div>`).join('');
+        }
+
+        window.removePlayer = async function(id) {
+            if (!confirm("Remove this player?")) return;
+            try {
+                await api('DELETE', '/api/admin/players/' + id, null, true);
+                await loadData();
+                showToast("Player removed");
+            } catch (e) {
+                showToast(e.message || 'Could not remove player');
+            }
+        };
+
+        function renderPendingResults() {
+            let c = document.getElementById('pendingResultsContainer');
+            if (!c) return;
+            if (!pendingResults.length) { c.innerHTML = '<i style="color:var(--ef-muted)">No pending results</i>'; return; }
+            c.innerHTML = pendingResults.map(pr => {
+                let m = matches.find(x => x.id === pr.matchId);
+                let home = m ? getSquadName(m.player1) : '?', away = m ? getSquadName(m.player2) : '?';
+                return `<div class="pending-item"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                    <div><strong>${home}</strong> <span style="color:var(--ef-lime);font-family:'Exo 2',sans-serif;font-weight:700">${pr.score1}–${pr.score2}</span> <strong>${away}</strong></div>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn-sm" onclick="approvePending('${pr.id}')"><i class="fas fa-check"></i> Approve</button>
+                        <button class="btn-sm btn-danger" onclick="rejectPending('${pr.id}')"><i class="fas fa-times"></i> Reject</button>
+                    </div>
+                </div>
+                ${pr.screenshot ? `<img src="${pr.screenshot}" class="screenshot-preview" onclick="window.open(this.src)">` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        window.approvePending = function(id) {
+            let pr = pendingResults.find(x=>x.id===id);
+            if (!pr) return;
+            addMatchResult(pr.matchId, pr.score1, pr.score2);
+            pendingResults = pendingResults.filter(x=>x.id!==id);
+            saveData(); renderPendingResults(); showToast("Result approved ✓");
+        };
+        window.rejectPending = function(id) {
+            pendingResults = pendingResults.filter(x=>x.id!==id);
+            saveData(); renderPendingResults(); showToast("Result rejected");
+        };
+
+        function updateProposalDropdown() {
+            let sel = document.getElementById('proposalMatchSelect');
+            if (!sel || !loggedInPlayer) return;
+            let myMatches = matches.filter(m => m.status==='scheduled' && (m.player1===loggedInPlayer.id||m.player2===loggedInPlayer.id));
+            sel.innerHTML = '<option value="">Select fixture</option>' + myMatches.map(m => `<option value="${m.id}">${getSquadName(m.player1)} vs ${getSquadName(m.player2)}</option>`).join('');
+        }
+
+        function renderAll() {
+            renderLeaderboard(); renderOnlinePlayers(); renderLiveFeed();
+            renderTournamentUI(); renderFixturesTable();
+            let statsEl = document.getElementById('hsStat1');
+            if (statsEl) {
+                document.getElementById('hsStat1').textContent = players.length;
+                document.getElementById('hsStat2').textContent = tournaments.length;
+                document.getElementById('hsStat3').textContent = players.filter(p=>p.isOnline).length;
+                document.getElementById('hsStat4').textContent = matches.filter(m=>m.status==='played').length;
+            }
+            if (loggedInPlayer) { document.getElementById('chatPanel').style.display = 'block'; document.getElementById('submitResultCard').style.display = 'block'; updateProposalDropdown(); }
+            else { document.getElementById('chatPanel').style.display = 'none'; document.getElementById('submitResultCard').style.display = 'none'; }
+            if (isAdmin) { renderPlayerManagement(); renderPendingResults(); displayPaymentAudit(); renderPendingRegistrations(); }
+        }
+
+        // ---- EVENTS ----
+        document.getElementById('enterArenaBtn').onclick = () => {
+            document.getElementById('fullscreenHero').style.display = 'none';
+            let app = document.getElementById('mainApp');
+            app.style.display = 'block'; setTimeout(() => app.classList.add('visible'), 10);
+            renderAll();
+        };
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); document.getElementById(id).style.display = 'none'; }
+
+        function setRegistrationDefaultsForTanzania() {
+            let countrySelect = document.getElementById('modalRegCountry');
+            let phoneCodeSelect = document.getElementById('modalRegPhoneCode');
+            if (!countrySelect || !phoneCodeSelect) return;
+            if (!countrySelect.value || countrySelect.value === 'Tanzania') {
+                countrySelect.value = 'Tanzania';
+                phoneCodeSelect.value = '+255';
+            }
+        }
+
+        document.getElementById('openRegisterModalBtn').onclick = () => {
+            resetRegAvatarPreview();
+            document.getElementById('modalRegMessage').textContent = '';
+            setRegistrationDefaultsForTanzania();
+            renderRegPaymentInstructions();
+            openModal('registerModal');
+        };
+        let paymentProviderEl = document.getElementById('paymentProvider');
+        if (paymentProviderEl) paymentProviderEl.addEventListener('change', renderRegPaymentInstructions);
+        document.getElementById('closeModalBtn').onclick = () => closeModal('registerModal');
+        document.getElementById('openLoginModalBtn').onclick = () => openModal('loginModal');
+        document.getElementById('closeLoginModalBtn').onclick = () => closeModal('loginModal');
+        document.getElementById('openAdminLoginBtn').onclick = async () => {
+            await refreshAdminStatus();
+            prepareAdminModal();
+            openModal('adminModal');
+        };
+
+        function bindAdminPasswordEnter() {
+            const submit = () => document.getElementById('submitAdminLogin').click();
+            ['adminPasswordInput', 'adminNewPassword', 'adminConfirmPassword'].forEach(id => {
+                let el = document.getElementById(id);
+                if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+            });
+        }
+        bindAdminPasswordEnter();
+        document.getElementById('closeAdminModalBtn').onclick = () => closeModal('adminModal');
+        document.getElementById('closeTeamsModalBtn').onclick = () => closeModal('teamsModal');
+        document.getElementById('closeStandingModalBtn').onclick = () => closeModal('standingModal');
+        document.getElementById('closePrizeModalBtn').onclick = () => closeModal('prizeModal');
+        document.getElementById('closeContactModalBtn').onclick = () => closeModal('contactModal');
+        document.getElementById('closeRequestModalBtn').onclick = () => closeModal('requestMatchModal');
+        document.getElementById('backToHeroBtn').onclick = () => {
+            document.getElementById('mainApp').classList.remove('visible');
+            setTimeout(() => { document.getElementById('mainApp').style.display='none'; document.getElementById('fullscreenHero').style.display='flex'; }, 500);
+        };
+
+        const TZ_PREFIX_TO_PROVIDER = {
+            '074': 'M-Pesa', '075': 'M-Pesa', '076': 'M-Pesa', '077': 'M-Pesa',
+            '071': 'Tigo Pesa', '065': 'Tigo Pesa', '067': 'Tigo Pesa',
+            '078': 'Airtel Money', '069': 'Airtel Money', '068': 'Airtel Money'
+        };
+        const TZ_SANDBOX_PHONE_PROVIDER = {
+            '0712345678': 'M-Pesa',
+            '0712345679': 'Tigo Pesa',
+            '0712345680': 'Airtel Money'
+        };
+
+        function digitsOnly(value) { return String(value || '').replace(/\D/g, ''); }
+
+        function buildRegistrationPhone(phoneCode, phoneLocal, country) {
+            let code = digitsOnly(phoneCode);
+            let local = digitsOnly(phoneLocal);
+            if (!local) return { valid: false, message: 'Enter your mobile money phone number' };
+
+            if (country === 'Tanzania' || code === '255') {
+                if (local.startsWith('255')) local = local.slice(3);
+                if (local.startsWith('0')) local = local.slice(1);
+                if (local.length !== 9 || !/^7\d{8}$/.test(local)) {
+                    return { valid: false, message: 'Enter a valid Tanzania number (9 digits starting with 7, e.g. 712345678)' };
+                }
+                let localTen = '0' + local;
+                return {
+                    valid: true,
+                    localTen,
+                    e164: '+255' + local,
+                    international: '255' + local
+                };
+            }
+
+            if (code && local.startsWith('0')) local = local.slice(1);
+            if (!code || local.length < 8) {
+                return { valid: false, message: 'Select country code and enter a valid phone number' };
+            }
+            return {
+                valid: true,
+                localTen: phoneLocal.trim(),
+                e164: '+' + code + local,
+                international: code + local
+            };
+        }
+
+        function detectTzProvider(localTen) {
+            if (TZ_SANDBOX_PHONE_PROVIDER[localTen]) return TZ_SANDBOX_PHONE_PROVIDER[localTen];
+            return TZ_PREFIX_TO_PROVIDER[localTen.slice(0, 3)] || null;
+        }
+
+        function validateProviderForPhone(localTen, provider, country) {
+            if (country !== 'Tanzania') return { ok: true };
+            let detected = detectTzProvider(localTen);
+            if (!detected) return { ok: true };
+            if (detected !== provider) {
+                return { ok: false, message: `Number ${localTen} is for ${detected}, but you selected ${provider}. Match network and number.` };
+            }
+            return { ok: true };
+        }
+
+        function readRegistrationAvatarFile(file) {
+            return new Promise((resolve, reject) => {
+                if (!file) { reject(new Error('Upload a profile picture')); return; }
+                if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+                    reject(new Error('Use JPG, PNG, or WebP for your profile picture'));
+                    return;
+                }
+                if (file.size > 2 * 1024 * 1024) {
+                    reject(new Error('Profile picture must be 2 MB or smaller'));
+                    return;
+                }
+                let reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('Could not read the image file'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function resetRegAvatarPreview() {
+            let input = document.getElementById('modalRegAvatar');
+            let preview = document.getElementById('modalRegAvatarPreview');
+            if (input) input.value = '';
+            if (preview) preview.style.display = 'none';
+            let img = document.getElementById('modalRegAvatarImg');
+            if (img) img.removeAttribute('src');
+            let nameEl = document.getElementById('modalRegAvatarName');
+            if (nameEl) nameEl.textContent = '';
+        }
+
+        async function submitPendingRegistration(reg) {
+            let msgEl = document.getElementById('modalRegMessage');
+            if (!apiOnline) {
+                if (msgEl) msgEl.textContent = 'Server offline — run npm start first';
+                return;
+            }
+            let payTo = getPayNumberForProvider(reg.provider, getPaymentSettings());
+            try {
+                await api('POST', '/api/register', reg);
+                await loadData();
+                closeModal('registerModal');
+                document.getElementById('modalRegisterForm').reset();
+                resetRegAvatarPreview();
+                document.getElementById('regPaymentInstructions').style.display = 'none';
+                if (msgEl) msgEl.textContent = '';
+                showToast('Submitted! Admin will verify your payment, then you can log in.');
+                alert('Registration submitted!\n\n1. You paid to: ' + payTo + '\n2. Reference: ' + reg.paymentRef + '\n3. Wait for admin verification\n4. Log in with squad name + password after approval');
+            } catch (e) {
+                if (msgEl) msgEl.textContent = e.message;
+                showToast(e.message || 'Registration failed');
+            }
+        }
+
+        document.getElementById('modalRegisterForm').onsubmit = function(e) {
+            e.preventDefault();
+            let name = document.getElementById('modalRegName').value.trim();
+            let phoneCode = document.getElementById('modalRegPhoneCode').value;
+            let phoneLocal = document.getElementById('modalRegPhone').value.trim();
+            let country = document.getElementById('modalRegCountry').value;
+            let squad = document.getElementById('modalRegSquad').value.trim();
+            let provider = document.getElementById('paymentProvider').value;
+            let password = document.getElementById('modalRegPassword').value;
+            let paymentRef = document.getElementById('modalRegPaymentRef').value.trim();
+            let avatarFile = document.getElementById('modalRegAvatar').files[0];
+            let msgEl = document.getElementById('modalRegMessage');
+            if (!name || !phoneLocal || !country || !squad || !provider || !password || !paymentRef) {
+                msgEl.textContent = 'Fill all required fields including payment reference';
+                return;
+            }
+            if (country === 'Tanzania' && !phoneCode) {
+                msgEl.textContent = 'Select +255 Tanzania for your phone code';
+                return;
+            }
+            let phoneInfo = buildRegistrationPhone(phoneCode, phoneLocal, country);
+            if (!phoneInfo.valid) {
+                msgEl.textContent = phoneInfo.message;
+                return;
+            }
+            let providerCheck = validateProviderForPhone(phoneInfo.localTen, provider, country);
+            if (!providerCheck.ok) {
+                msgEl.textContent = providerCheck.message;
+                return;
+            }
+            if (squadExistsAnywhere(squad)) {
+                msgEl.textContent = 'Squad name already taken or awaiting verification';
+                return;
+            }
+            msgEl.textContent = 'Submitting…';
+            readRegistrationAvatarFile(avatarFile).then(async avatarData => {
+                await submitPendingRegistration({
+                    name,
+                    phone: phoneInfo.e164,
+                    country,
+                    squad,
+                    provider,
+                    password,
+                    avatar: avatarData,
+                    paymentRef
+                });
+            }).catch(err => { msgEl.textContent = err.message || 'Could not use profile picture'; });
+        };
+
+        document.getElementById('savePaymentSettingsBtn').onclick = async () => {
+            if (!isAdmin) return showToast('Admin login required');
+            let settings = {
+                companyName: document.getElementById('paySettingsCompany').value.trim(),
+                mpesaNumber: document.getElementById('paySettingsMpesa').value.trim(),
+                tigoNumber: document.getElementById('paySettingsTigo').value.trim(),
+                airtelNumber: document.getElementById('paySettingsAirtel').value.trim(),
+                registrationFee: parseInt(document.getElementById('paySettingsFee').value, 10) || 10000,
+                currency: 'TZS',
+                paymentNote: DEFAULT_PAYMENT_SETTINGS.paymentNote
+            };
+            try {
+                let data = await api('PUT', '/api/admin/payment-settings', settings, true);
+                paymentSettingsCache = data.paymentSettings || settings;
+                showToast('Payment numbers saved to database ✓');
+                renderRegPaymentInstructions();
+            } catch (e) {
+                showToast(e.message || 'Could not save settings');
+            }
+        };
+
+        document.getElementById('submitLoginBtn').onclick = async () => {
+            let squad = document.getElementById('loginSquad').value.trim();
+            let pass = document.getElementById('loginPassword').value;
+            let msgEl = document.getElementById('loginMessage');
+            if (await loginPlayer(squad, pass)) {
+                closeModal('loginModal');
+                document.getElementById('fullscreenHero').style.display = 'none';
+                let app = document.getElementById('mainApp');
+                app.style.display = 'block';
+                setTimeout(() => app.classList.add('visible'), 10);
+            } else if (msgEl) msgEl.textContent = 'Invalid squad, password, or payment not verified yet';
+        };
+
+        document.getElementById('submitAdminLogin').onclick = async () => {
+            let setup = !hasAdminPassword;
+            let password = setup
+                ? document.getElementById('adminNewPassword').value
+                : document.getElementById('adminPasswordInput').value;
+            let confirm = setup ? document.getElementById('adminConfirmPassword').value : '';
+            let ok = await tryAdminLogin(password, confirm);
+            if (ok) {
+                closeModal('adminModal');
+                enterMainAppFromHero();
+            }
+        };
+
+        document.getElementById('changeAdminPasswordBtn').onclick = async () => {
+            if (!isAdmin) return showToast('Log in as admin first');
+            let msgEl = document.getElementById('adminSecurityMessage');
+            let current = document.getElementById('adminCurrentPassword').value;
+            let next = document.getElementById('adminChangeNewPassword').value;
+            let confirmPw = document.getElementById('adminChangeConfirmPassword').value;
+            if (!next || next.length < ADMIN_MIN_PASSWORD_LEN) {
+                if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = 'New password must be at least ' + ADMIN_MIN_PASSWORD_LEN + ' characters'; }
+                return;
+            }
+            if (next !== confirmPw) {
+                if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = 'New passwords do not match'; }
+                return;
+            }
+            try {
+                await api('POST', '/api/admin/change-password', { currentPassword: current, newPassword: next }, true);
+                ['adminCurrentPassword', 'adminChangeNewPassword', 'adminChangeConfirmPassword'].forEach(id => {
+                    let el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                if (msgEl) { msgEl.style.color = 'var(--ef-lime)'; msgEl.textContent = 'Admin password updated in database'; }
+                showToast('Admin password updated');
+            } catch (e) {
+                if (msgEl) { msgEl.style.color = 'var(--ef-pink)'; msgEl.textContent = e.message; }
+            }
+        };
+
+        document.getElementById('adminLogoutBtn').onclick = adminLogout;
+        let refreshPendingBtn = document.getElementById('refreshPendingRegBtn');
+        if (refreshPendingBtn) refreshPendingBtn.onclick = () => refreshPendingRegistrations();
+        document.getElementById('userLogoutBtn').onclick = logoutPlayer;
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                let sec = item.dataset.section;
+                if (sec==='teams') openModal('teamsModal');
+                else if (sec==='standing') { document.getElementById('standingModalContent').innerHTML = document.getElementById('homeSection').innerHTML; openModal('standingModal'); }
+                else if (sec==='prize') openModal('prizeModal');
+                else if (sec==='contact') openModal('contactModal');
+                else if (sec==='request') openModal('requestMatchModal');
+            });
+        });
+
+        ['footerTeamsLink','footerStandingLink','footerPrizeLink','footerContactLink'].forEach((id,i) => {
+            let el = document.getElementById(id);
+            if (el) el.onclick = (e) => { e.preventDefault(); ['teamsModal','standingModal','prizeModal','contactModal'][i] && openModal(['teamsModal','standingModal','prizeModal','contactModal'][i]); };
+        });
+
+        document.getElementById('postFeedBtn').onclick = () => {
+            let msg = document.getElementById('feedMessage').value.trim();
+            if (msg) { addFeedAuto('📢 ' + msg); document.getElementById('feedMessage').value = ''; }
+        };
+
+        document.getElementById('createTournamentBtn').onclick = () => createTournament(document.getElementById('tournamentFormatSelect').value);
+        document.getElementById('regenerateFixturesBtn').onclick = () => {
+            let tour = tournaments.find(t=>t.id===activeTournamentId);
+            if (tour) { generateFixtures(tour); saveData(); renderAll(); showToast("Fixtures regenerated"); }
+        };
+
+        // Team search
+        document.getElementById('teamSearch').addEventListener('input', function() {
+            let q = this.value.toLowerCase();
+            document.querySelectorAll('.team-row').forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none');
+        });
+
+        // Teams modal
+        let teamsModalBtn = document.querySelector('[data-section="teams"]');
+        if (teamsModalBtn) teamsModalBtn.addEventListener('click', () => {
+            let c = document.getElementById('teamsListContainer');
+            c.innerHTML = players.map(p => `<div class="team-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><div style="display:flex;align-items:center;gap:10px"><img src="${p.avatar}" class="av" onerror="this.src='https://via.placeholder.com/34'"><div><strong>${p.squad}</strong><div style="font-size:0.8rem;color:var(--ef-muted)">${p.name} · ${p.country}</div></div></div><span class="pts-badge">${p.points} pts</span></div>`).join('') || '<i style="color:var(--ef-muted)">No teams yet</i>';
+        });
+
+        // Submit proposal
+        document.getElementById('submitProposalBtn').onclick = () => {
+            let matchId = document.getElementById('proposalMatchSelect').value;
+            let s1 = parseInt(document.getElementById('homeScoreInput').value)||0;
+            let s2 = parseInt(document.getElementById('awayScoreInput').value)||0;
+            if (!matchId) return showToast("Select a fixture");
+            let file = document.getElementById('screenshotInput').files[0];
+            function doSubmit(screenshot) {
+                pendingResults.push({ id: 'pr_'+Date.now(), matchId, score1:s1, score2:s2, submittedBy: loggedInPlayer?.squad, screenshot, timestamp: Date.now() });
+                saveData(); showToast("Result submitted for approval ✓");
+                document.getElementById('proposalMatchSelect').value=''; document.getElementById('homeScoreInput').value=''; document.getElementById('awayScoreInput').value='';
+                document.getElementById('screenshotInput').value='';
+                if (isAdmin) renderPendingResults();
+            }
+            if (file) { let r = new FileReader(); r.onload = e => doSubmit(e.target.result); r.readAsDataURL(file); }
+            else doSubmit(null);
+        };
+
+        // OCR
+        document.getElementById('ocrAutoFillBtn').onclick = async () => {
+            let file = document.getElementById('screenshotInput').files[0];
+            if (!file) return showToast("Upload screenshot first");
+            document.getElementById('ocrResult').textContent = 'Reading...';
+            try {
+                const { data: { text } } = await Tesseract.recognize(file, 'eng');
+                document.getElementById('ocrResult').textContent = 'OCR: ' + text.substring(0,100);
+                let nums = text.match(/\d+/g);
+                if (nums && nums.length >= 2) {
+                    document.getElementById('homeScoreInput').value = nums[0];
+                    document.getElementById('awayScoreInput').value = nums[1];
+                }
+            } catch(e) { document.getElementById('ocrResult').textContent = 'OCR failed'; }
+        };
+
+        // Media
+        document.getElementById('addMediaBtn').onclick = () => {
+            let title = document.getElementById('mediaTitle').value.trim();
+            let url = document.getElementById('mediaUrl').value.trim();
+            let type = document.getElementById('mediaType').value;
+            if (!url) return showToast("URL required");
+            mediaItems.push({ id: Date.now(), title, url, type });
+            saveData();
+            let g = document.getElementById('mediaGallery');
+            g.innerHTML = mediaItems.map(m => `<div class="media-card"><div style="font-size:0.75rem;color:var(--ef-lime);margin-bottom:4px">${m.type.toUpperCase()}</div><div style="font-size:0.8rem;color:var(--ef-muted);word-break:break-all">${m.title||m.url.substring(0,40)}</div></div>`).join('');
+            showToast("Media added");
+        };
+
+        // Background
+        document.getElementById('setUrlBgBtn').onclick = () => {
+            let url = document.getElementById('bgUrlInput').value.trim();
+            if (url) { document.body.style.backgroundImage = `url(${url})`; document.body.style.backgroundSize = 'cover'; localStorage.setItem('globalBackground', url); showToast("Background set"); }
+        };
+        document.getElementById('bgFileInput').onchange = e => {
+            let f = e.target.files[0];
+            if (f) { let r = new FileReader(); r.onload = ev => { document.body.style.backgroundImage = `url(${ev.target.result})`; document.body.style.backgroundSize = 'cover'; localStorage.setItem('globalBackground', ev.target.result); showToast("Background uploaded"); }; r.readAsDataURL(f); }
+        };
+        document.getElementById('resetBgBtn').onclick = () => { document.body.style.backgroundImage=''; localStorage.removeItem('globalBackground'); showToast("Background reset"); };
+
+        // PDF
+        document.getElementById('generateReportBtn').onclick = () => {
+            if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined') { showToast("PDF lib loading..."); return; }
+            let { jsPDF } = window.jspdf;
+            let doc = new jsPDF();
+            doc.setFontSize(20); doc.text('eFootball Arena - Tournament Report', 20, 20);
+            doc.setFontSize(12);
+            let y = 40;
+            [...players].sort((a,b)=>b.points-a.points).forEach((p, i) => {
+                doc.text(`${i+1}. ${p.squad} (${p.name}) - ${p.points} pts`, 20, y);
+                y += 8;
+            });
+            doc.save('tournament-report.pdf');
+        };
+
+        document.getElementById('certificateWinnerBtn').onclick = () => {
+            let winner = [...players].sort((a,b)=>b.points-a.points)[0];
+            if (!winner) return showToast("No winner yet");
+            showToast(`🏆 Certificate for ${winner.squad}!`);
+        };
+
+        // Request match form
+        document.getElementById('requestMatchForm').onsubmit = e => {
+            e.preventDefault();
+            showToast("Match request sent!"); closeModal('requestMatchModal');
+        };
+
+        // Chat
+        document.getElementById('sendChatBtn').onclick = () => {
+            let text = document.getElementById('chatInput').value.trim();
+            if (!text || !loggedInPlayer) return;
+            chatMessages.push({ sender: loggedInPlayer.squad, text, time: Date.now() });
+            saveData();
+            let c = document.getElementById('chatMessages');
+            c.innerHTML = chatMessages.slice(-50).map(m => `<div><small style="color:var(--ef-muted)">${new Date(m.time).toLocaleTimeString()}</small> <strong style="color:var(--ef-lime)">${m.sender}:</strong> ${m.text}</div>`).join('');
+            c.scrollTop = c.scrollHeight;
+            document.getElementById('chatInput').value = '';
+        };
+
+        document.getElementById('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('sendChatBtn').click(); });
+
+        document.getElementById('toggleChat').onclick = () => {
+            let msgs = document.getElementById('chatMessages');
+            let inp = document.querySelector('.chat-in');
+            let tog = document.getElementById('toggleChat');
+            if (msgs.style.display === 'none') { msgs.style.display='flex'; inp.style.display='flex'; tog.innerText='−'; }
+            else { msgs.style.display='none'; inp.style.display='none'; tog.innerText='+'; }
+        };
+
+        document.querySelectorAll('.pwd-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                let input = document.getElementById(btn.dataset.target);
+                let icon = btn.querySelector('i');
+                if (!input || !icon) return;
+                let show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                icon.classList.toggle('fa-eye', !show);
+                icon.classList.toggle('fa-eye-slash', show);
+            });
+        });
+
+        // Init dropdowns
+        let countries = ["Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Australia","Austria","Bangladesh","Belgium","Brazil","Canada","Chile","China","Colombia","Croatia","Denmark","Egypt","England","Finland","France","Germany","Ghana","Greece","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Japan","Kenya","Malaysia","Mexico","Netherlands","New Zealand","Nigeria","Norway","Pakistan","Peru","Philippines","Poland","Portugal","Romania","Russia","Saudi Arabia","Serbia","Singapore","South Africa","South Korea","Spain","Sweden","Switzerland","Tanzania","Thailand","Turkey","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Vietnam","Zambia","Zimbabwe"];
+        let phoneCodeOptions = [
+            { value: '+255', label: '+255 Tanzania' },
+            { value: '+254', label: '+254 Kenya' },
+            { value: '+256', label: '+256 Uganda' },
+            { value: '+1', label: '+1 USA/Canada' },
+            { value: '+44', label: '+44 UK' },
+            { value: '+27', label: '+27 South Africa' },
+            { value: '+234', label: '+234 Nigeria' },
+            { value: '+91', label: '+91 India' },
+            { value: '+61', label: '+61 Australia' },
+            { value: '+49', label: '+49 Germany' },
+            { value: '+33', label: '+33 France' },
+            { value: '+81', label: '+81 Japan' },
+            { value: '+86', label: '+86 China' },
+            { value: '+55', label: '+55 Brazil' },
+            { value: '+7', label: '+7 Russia' },
+            { value: '+39', label: '+39 Italy' },
+            { value: '+34', label: '+34 Spain' }
+        ];
+        let countrySelect = document.getElementById('modalRegCountry');
+        if (countrySelect) countries.forEach(c => countrySelect.innerHTML += `<option value="${c}">${c}</option>`);
+        let phoneCodeSelect = document.getElementById('modalRegPhoneCode');
+        if (phoneCodeSelect) {
+            phoneCodeSelect.innerHTML = '<option value="">Country code</option>';
+            phoneCodeOptions.forEach(o => {
+                phoneCodeSelect.innerHTML += `<option value="${o.value}">${o.label}</option>`;
+            });
+            phoneCodeSelect.value = '+255';
+        }
+        if (countrySelect) {
+            countrySelect.addEventListener('change', function() {
+                if (this.value === 'Tanzania' && phoneCodeSelect) phoneCodeSelect.value = '+255';
+            });
+            if (!countrySelect.value) countrySelect.value = 'Tanzania';
+        }
+        let regAvatarInput = document.getElementById('modalRegAvatar');
+        if (regAvatarInput) {
+            regAvatarInput.addEventListener('change', function() {
+                let file = this.files[0];
+                let preview = document.getElementById('modalRegAvatarPreview');
+                let img = document.getElementById('modalRegAvatarImg');
+                let nameEl = document.getElementById('modalRegAvatarName');
+                if (!file || !preview || !img) return;
+                if (file.size > 2 * 1024 * 1024) {
+                    this.value = '';
+                    preview.style.display = 'none';
+                    document.getElementById('modalRegMessage').textContent = 'Image must be 2 MB or smaller';
+                    return;
+                }
+                let reader = new FileReader();
+                reader.onload = e => {
+                    img.src = e.target.result;
+                    if (nameEl) nameEl.textContent = file.name;
+                    preview.style.display = 'flex';
+                    document.getElementById('modalRegMessage').textContent = '';
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderChatMessages() {
+            let chatEl = document.getElementById('chatMessages');
+            if (!chatEl) return;
+            chatEl.innerHTML = chatMessages.slice(-50).map(m => `<div><small style="color:var(--ef-muted)">${new Date(m.time).toLocaleTimeString()}</small> <strong style="color:var(--ef-lime)">${m.sender}:</strong> ${m.text}</div>`).join('');
+        }
+
+        // Restore background (UI preference only)
+        let savedBg = localStorage.getItem('globalBackground');
+        if (savedBg) { document.body.style.backgroundImage = `url(${savedBg})`; document.body.style.backgroundSize = 'cover'; }
+
+        async function initHeroLogoCarousel() {
+            let carousel = document.getElementById('heroLogoCarousel');
+            let dotsWrap = document.getElementById('heroLogoDots');
+            if (!carousel) return;
+            let images = ['images/img1.jpeg', 'images/img2.jpeg', 'images/img3.jpeg', 'images/img4.jpeg'];
+            try {
+                let res = await fetch(apiUrl('/api/images'));
+                let data = await res.json();
+                if (data.images && data.images.length) images = data.images;
+            } catch (e) { /* use defaults */ }
+            carousel.innerHTML = images.map((src, i) =>
+                `<img class="ef-logo-slide${i === 0 ? ' active' : ''}" src="${src}" alt="eFootball ${i + 1}">`
+            ).join('');
+            let slides = carousel.querySelectorAll('.ef-logo-slide');
+            if (!slides.length) return;
+            if (dotsWrap) {
+                dotsWrap.innerHTML = '';
+                slides.forEach((_, i) => {
+                    let d = document.createElement('span');
+                    if (i === 0) d.classList.add('on');
+                    dotsWrap.appendChild(d);
+                });
+            }
+            let idx = 0;
+            let dots = dotsWrap ? dotsWrap.querySelectorAll('span') : [];
+            setInterval(() => {
+                slides[idx].classList.remove('active');
+                if (dots[idx]) dots[idx].classList.remove('on');
+                idx = (idx + 1) % slides.length;
+                slides[idx].classList.add('active');
+                if (dots[idx]) dots[idx].classList.add('on');
+            }, 4500);
+        }
+
+        await loadData();
+        renderChatMessages();
+        await initHeroLogoCarousel();
+        loadPaymentSettingsForm();
+
+        setInterval(() => {
+            if (loggedInPlayer) { loggedInPlayer.isOnline = true; saveData(); renderOnlinePlayers(); }
+        }, 30000);
+
+        setInterval(async () => {
+            await loadData();
+            renderChatMessages();
+            renderAll();
+            if (isAdmin) {
+                renderPendingResults();
+                await displayPaymentAudit();
+                await refreshPendingRegistrations();
+            }
+        }, 5000);
+    }
+})();
+</script>
+</body>
+</html>

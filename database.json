@@ -1,0 +1,128 @@
+{
+  "admin": {
+    "username": "admin",
+    "passwordHash": "$2a$10$9rktZc08PllZ7l55dHMZWeE73qU7eM8/x64NNIL1g.Z4ioiEhiK6O"
+  },
+  "paymentSettings": {
+    "companyName": "eFootball Arena",
+    "mpesaNumber": "12121",
+    "tigoNumber": "",
+    "airtelNumber": "",
+    "registrationFee": 10000,
+    "currency": "TZS",
+    "paymentNote": "Use your squad name as the payment reference/message"
+  },
+  "players": [],
+  "pendingRegistrations": [
+    {
+      "id": "reg_1780303432201",
+      "name": "John Mlyatu",
+      "phone": "+255756551900",
+      "country": "Tanzania",
+      "squad": "MLYATU",
+      "username": "MLYATU",
+      "provider": "M-Pesa",
+      "passwordHash": "$2a$10$4PrLn3Hn14HHsw.1ml5specOfT7NkCGiyazcjKkk67SJdtZwTFiGC",
+      "paymentRef": "MLYATU",
+      "payToNumber": "987465",
+      "amount": 10000,
+      "currency": "TZS",
+      "avatar": "/uploads/reg_1780303432201.jpg",
+      "status": "verified",
+      "submittedAt": 1780303432360,
+      "verifiedAt": 1780304254090
+    },
+    {
+      "id": "reg_1780304517850",
+      "name": "John Mlyatu",
+      "phone": "+255756551900",
+      "country": "Tanzania",
+      "squad": "MLYATU1",
+      "username": "MLYATU1",
+      "provider": "M-Pesa",
+      "passwordHash": "$2a$10$4rJK7TYH5is4xDXoDjJZxOC74Mvvw1Yp.dxmj2aECNq7e6NUXJYki",
+      "paymentRef": "MLYATU1",
+      "payToNumber": "12121",
+      "amount": 10000,
+      "currency": "TZS",
+      "avatar": "/uploads/reg_1780304517850.jpg",
+      "status": "verified",
+      "submittedAt": 1780304517954,
+      "verifiedAt": 1780304698491
+    }
+  ],
+  "payments": [
+    {
+      "squad": "MLYATU",
+      "provider": "M-Pesa",
+      "phone": "+255756551900",
+      "amount": 10000,
+      "currency": "TZS",
+      "paymentRef": "MLYATU",
+      "payToNumber": "987465",
+      "verifiedBy": "admin",
+      "date": "2026-06-01T08:57:34.090Z"
+    },
+    {
+      "squad": "MLYATU1",
+      "provider": "M-Pesa",
+      "phone": "+255756551900",
+      "amount": 10000,
+      "currency": "TZS",
+      "paymentRef": "MLYATU1",
+      "payToNumber": "12121",
+      "verifiedBy": "admin",
+      "date": "2026-06-01T09:04:58.491Z"
+    }
+  ],
+  "tournaments": [],
+  "matches": [],
+  "liveFeeds": [
+    {
+      "id": 1780304698555.308,
+      "content": "✅ MLYATU1 registered — payment verified by admin",
+      "createdAt": "2026-06-01T09:04:58.555Z"
+    },
+    {
+      "id": "f_1780304698492",
+      "content": "✅ MLYATU1 registered — payment verified by admin",
+      "createdAt": "2026-06-01T09:04:58.492Z"
+    },
+    {
+      "id": "f_1780304517954",
+      "content": "📝 MLYATU1 submitted registration — awaiting payment verification",
+      "createdAt": "2026-06-01T09:01:57.954Z"
+    },
+    {
+      "id": 1780304254156.4307,
+      "content": "✅ MLYATU registered — payment verified by admin",
+      "createdAt": "2026-06-01T08:57:34.156Z"
+    },
+    {
+      "id": "f_1780304254092",
+      "content": "✅ MLYATU registered — payment verified by admin",
+      "createdAt": "2026-06-01T08:57:34.092Z"
+    },
+    {
+      "id": "f_1780303432360",
+      "content": "📝 MLYATU submitted registration — awaiting payment verification",
+      "createdAt": "2026-06-01T08:43:52.360Z"
+    },
+    {
+      "id": "f_welcome",
+      "content": "Welcome to eFootball Arena! Register your squad to join.",
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    }
+  ],
+  "mediaItems": [],
+  "activeTournamentId": null,
+  "matchRequests": [],
+  "pendingResults": [],
+  "chatMessages": [
+    {
+      "sender": "System",
+      "text": "Welcome to eFootball Arena!",
+      "time": 0
+    }
+  ]
+}
