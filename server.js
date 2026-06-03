@@ -34,7 +34,17 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const fs = require('fs');
+const path = require('path');
+
+const uploadDir = '/tmp/uploads';
+
+// Create directory with recursive option (safer)
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const adminSessions = new Map();
 let dbWriteQueue = Promise.resolve();
