@@ -4,11 +4,10 @@ const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
-const ROOT = __dirname;
+const ROOT = process.cwd();
 const DB_PATH = path.join(ROOT, 'database.json');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
 const IMAGES_DIR = path.join(ROOT, 'images');
-const PORT = process.env.PORT || 3000;
 const ADMIN_MIN_LEN = 6;
 
 const app = express();
@@ -34,34 +33,31 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-const fs = require('fs');
-const path = require('path');
-
-const uploadDir = '/tmp/uploads';
-
-// Create directory with recursive option (safer)
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// Ensure directories exist
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
 
 const adminSessions = new Map();
 let dbWriteQueue = Promise.resolve();
 
 function readDb() {
-  const raw = fs.readFileSync(DB_PATH, 'utf8');
-  const db = JSON.parse(raw);
-  if (!db.liveFeeds?.length) {
-    db.liveFeeds = [{ id: 'f_welcome', content: 'Welcome to eFootball Arena!', createdAt: new Date().toISOString() }];
+  try {
+    const raw = fs.readFileSync(DB_PATH, 'utf8');
+    const db = JSON.parse(raw);
+    if (!db.liveFeeds?.length) {
+      db.liveFeeds = [{ id: 'f_welcome', content: 'Welcome to eFootball Arena!', createdAt: new Date().toISOString() }];
+    }
+    if (db.liveFeeds[0] && !db.liveFeeds[0].createdAt) {
+      db.liveFeeds[0].createdAt = new Date().toISOString();
+    }
+    if (!db.chatMessages?.length) {
+      db.chatMessages = [{ sender: 'System', text: 'Welcome to eFootball Arena!', time: Date.now() }];
+    }
+    return db;
+  } catch (e) {
+    console.error('Error reading database:', e);
+    return { players: [], tournaments: [], matches: [], liveFeeds: [], mediaItems: [], matchRequests: [], pendingResults: [], chatMessages: [], payments: [], pendingRegistrations: [] };
   }
-  if (db.liveFeeds[0] && !db.liveFeeds[0].createdAt) {
-    db.liveFeeds[0].createdAt = new Date().toISOString();
-  }
-  if (!db.chatMessages?.length) {
-    db.chatMessages = [{ sender: 'System', text: 'Welcome to eFootball Arena!', time: Date.now() }];
-  }
-  return db;
 }
 
 function writeDb(mutator) {
@@ -88,8 +84,13 @@ function saveAvatarFromDataUrl(id, dataUrl) {
   const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
   const buf = Buffer.from(match[2], 'base64');
   const filename = `${id}.${ext}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
-  return `/uploads/${filename}`;
+  try {
+    fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
+    return `/uploads/${filename}`;
+  } catch (e) {
+    console.error('Error saving avatar:', e);
+    return null;
+  }
 }
 
 function createAdminToken() {
@@ -131,11 +132,15 @@ function isValidAdminToken(token) {
 
 app.get('/api/images', (req, res) => {
   if (!fs.existsSync(IMAGES_DIR)) return res.json({ images: [] });
-  const files = fs.readdirSync(IMAGES_DIR)
-    .filter(f => /\.(jpe?g|png|webp|gif|svg)$/i.test(f))
-    .sort()
-    .map(f => `/images/${f}`);
-  res.json({ images: files });
+  try {
+    const files = fs.readdirSync(IMAGES_DIR)
+      .filter(f => /\.(jpe?g|png|webp|gif|svg)$/i.test(f))
+      .sort()
+      .map(f => `/images/${f}`);
+    res.json({ images: files });
+  } catch (e) {
+    res.json({ images: [] });
+  }
 });
 
 app.get('/api/admin/status', (req, res) => {
@@ -299,24 +304,11 @@ app.post('/api/admin/verify-registration/:id', requireAdmin, async (req, res) =>
         provider: reg.provider,
         phone: reg.phone,
         amount: reg.amount,
-        currency: reg.currency || 'TZS',
-        paymentRef: reg.paymentRef,
-        payToNumber: reg.payToNumber,
-        verifiedBy: 'admin',
-        date: new Date().toISOString()
+        transactionId: reg.transactionId,
+        verifiedAt: new Date().toISOString()
       });
-      reg.status = 'verified';
-      reg.verifiedAt = Date.now();
+      reg.status = 'approved';
       approved = stripPlayer(player);
-    });
-    if (!approved) return res.status(404).json({ error: 'Registration not found or squad exists' });
-    await writeDb(d => {
-      d.liveFeeds = d.liveFeeds || [];
-      d.liveFeeds.unshift({
-        id: 'f_' + Date.now(),
-        content: `✅ ${approved.squad} registered — payment verified by admin`,
-        createdAt: new Date().toISOString()
-      });
     });
     res.json({ ok: true, player: approved });
   } catch (e) {
@@ -327,7 +319,7 @@ app.post('/api/admin/verify-registration/:id', requireAdmin, async (req, res) =>
 app.post('/api/admin/reject-registration/:id', requireAdmin, async (req, res) => {
   try {
     await writeDb(d => {
-      const reg = (d.pendingRegistrations || []).find(r => r.id === req.params.id);
+      const reg = (d.pendingRegistrations || []).find(r => r.id === req.params.id && r.status === 'pending');
       if (reg) reg.status = 'rejected';
     });
     res.json({ ok: true });
@@ -336,67 +328,32 @@ app.post('/api/admin/reject-registration/:id', requireAdmin, async (req, res) =>
   }
 });
 
-app.delete('/api/admin/players/:id', requireAdmin, async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
-    await writeDb(d => {
-      d.players = (d.players || []).filter(p => p.id !== req.params.id);
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post('/api/register', async (req, res) => {
-  try {
-    const { name, phone, country, squad, provider, password, paymentRef, avatar } = req.body || {};
-    if (!name || !phone || !country || !squad || !provider || !password || !paymentRef) {
+    const { name, squad, phone, country, password, provider, transactionId, amount, avatar } = req.body || {};
+    const db = readDb();
+    if (!name || !squad || !phone || !country || !password || !provider) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    const db = readDb();
-    const s = squad.toLowerCase();
-    if ((db.players || []).some(p => p.squad.toLowerCase() === s)) {
-      return res.status(400).json({ error: 'Squad name already exists' });
+    if ((db.players || []).some(p => p.squad.toLowerCase() === squad.toLowerCase())) {
+      return res.status(400).json({ error: 'Squad name already taken' });
     }
-    if ((db.pendingRegistrations || []).some(r => r.squad.toLowerCase() === s && r.status === 'pending')) {
-      return res.status(400).json({ error: 'Registration already pending for this squad' });
+    if ((db.pendingRegistrations || []).some(r => r.squad.toLowerCase() === squad.toLowerCase() && r.status === 'pending')) {
+      return res.status(400).json({ error: 'Registration already pending approval' });
     }
-    const payTo = provider === 'M-Pesa' ? db.paymentSettings.mpesaNumber
-      : provider === 'Tigo Pesa' ? db.paymentSettings.tigoNumber
-      : provider === 'Airtel Money' ? db.paymentSettings.airtelNumber : '';
-    if (!payTo) {
-      return res.status(400).json({ error: `No payment number configured for ${provider}` });
-    }
-    const id = 'reg_' + Date.now();
     const passwordHash = await bcrypt.hash(password, 10);
-    const avatarPath = saveAvatarFromDataUrl(id, avatar) || avatar || '';
+    const reg = {
+      id: 'r_' + Date.now(),
+      name, squad, phone, country, provider, transactionId, amount, avatar,
+      passwordHash,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
     await writeDb(d => {
-      d.liveFeeds = d.liveFeeds || [];
-      d.liveFeeds.unshift({
-        id: 'f_' + Date.now(),
-        content: `📝 ${squad} submitted registration — awaiting payment verification`,
-        createdAt: new Date().toISOString()
-      });
       d.pendingRegistrations = d.pendingRegistrations || [];
-      d.pendingRegistrations.push({
-        id,
-        name,
-        phone,
-        country,
-        squad,
-        username: squad,
-        provider,
-        passwordHash,
-        paymentRef,
-        payToNumber: payTo,
-        amount: d.paymentSettings.registrationFee,
-        currency: d.paymentSettings.currency || 'TZS',
-        avatar: avatarPath,
-        status: 'pending',
-        submittedAt: Date.now()
-      });
+      d.pendingRegistrations.push(reg);
     });
-    res.json({ ok: true, message: 'Registration submitted. Wait for admin to verify your payment.' });
+    res.json({ ok: true, registrationId: reg.id, message: 'Registration submitted, awaiting admin verification' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -473,34 +430,12 @@ app.put('/api/game-state', async (req, res) => {
   }
 });
 
-// Serve static files
-app.use(express.static(ROOT, {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-  }
-}));
-
-// SPA fallback
-app.get('/', (req, res) => {
-  res.sendFile(path.join(ROOT, 'index.html'));
-});
-
 app.use((req, res, next) => {
-  const blocked = ['/database.json', '/package.json', '/package-lock.json', '/server.js'];
+  const blocked = ['/database.json', '/package.json', '/package-lock.json', '/server.js', '/api/index.js'];
   if (blocked.includes(req.path) || req.path.startsWith('/node_modules')) {
     return res.status(404).end();
   }
   next();
 });
 
-// Fallback for SPA routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(ROOT, 'index.html'));
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`eFootball Arena running at http://localhost:${PORT}`);
-  console.log(`Open this URL in your browser (do not open index.html as a file).`);
-});
+module.exports = app;
