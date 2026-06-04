@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const cloudinary = require('cloudinary').v2;
 
 const ROOT = __dirname;
 const DB_PATH = path.join(ROOT, 'database.json');
@@ -10,6 +11,13 @@ const UPLOADS_DIR = path.join(ROOT, 'uploads');
 const IMAGES_DIR = path.join(ROOT, 'images');
 const PORT = process.env.PORT || 3000;
 const ADMIN_MIN_LEN = 6;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 
@@ -73,15 +81,20 @@ function stripPlayer(p) {
   return copy;
 }
 
-function saveAvatarFromDataUrl(id, dataUrl) {
+async function saveAvatarFromDataUrl(id, dataUrl) {
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return null;
-  const match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-  if (!match) return null;
-  const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-  const buf = Buffer.from(match[2], 'base64');
-  const filename = `${id}.${ext}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
-  return `/uploads/${filename}`;
+  
+  try {
+    const result = await cloudinary.uploader.upload(dataUrl, {
+      public_id: `efootball-arena/${id}`,
+      overwrite: true,
+      resource_type: 'auto'
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    return null;
+  }
 }
 
 function createAdminToken() {
@@ -361,7 +374,7 @@ app.post('/api/register', async (req, res) => {
     }
     const id = 'reg_' + Date.now();
     const passwordHash = await bcrypt.hash(password, 10);
-    const avatarPath = saveAvatarFromDataUrl(id, avatar) || avatar || '';
+    const avatarPath = await saveAvatarFromDataUrl(id, avatar) || avatar || '';
     await writeDb(d => {
       d.liveFeeds = d.liveFeeds || [];
       d.liveFeeds.unshift({
