@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "echo 'No tests configured' && exit 0"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
