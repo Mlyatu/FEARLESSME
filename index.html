@@ -1135,6 +1135,15 @@
         }
 
         function setServerOnline(online, message) {
+
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const bar = document.getElementById('serverStatusBar');
+                if (bar) bar.style.display = 'none';
+                document.body.classList.remove('server-offline');
+                apiOnline = true; // Assume online or handle silently
+                return;
+            }
+
             apiOnline = online;
             const bar = document.getElementById('serverStatusBar');
             if (!bar) return;
@@ -2395,7 +2404,7 @@
             let carousel = document.getElementById('heroLogoCarousel');
             let dotsWrap = document.getElementById('heroLogoDots');
             if (!carousel) return;
-            let images = ['images/img1.jpeg', 'images/img2.jpeg', 'images/img3.jpeg', 'images/img4.jpeg'];
+            let images = ['images/img.png',];
             try {
                 let res = await fetch(apiUrl('/api/images'));
                 let data = await res.json();
