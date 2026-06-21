@@ -1136,13 +1136,14 @@
 
         function setServerOnline(online, message) {
 
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
                 const bar = document.getElementById('serverStatusBar');
                 if (bar) bar.style.display = 'none';
                 document.body.classList.remove('server-offline');
                 apiOnline = true; // Assume online or handle silently
                 return;
             }
+
 
             apiOnline = online;
             const bar = document.getElementById('serverStatusBar');
