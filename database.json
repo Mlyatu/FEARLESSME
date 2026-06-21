@@ -5,7 +5,7 @@
   },
   "paymentSettings": {
     "companyName": "eFootball Arena",
-    "mpesaNumber": "12121",
+    "mpesaNumber": "",
     "tigoNumber": "",
     "airtelNumber": "",
     "registrationFee": 10000,
