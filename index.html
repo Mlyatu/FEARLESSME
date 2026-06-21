@@ -1951,9 +1951,12 @@
             if (country === 'Tanzania' || code === '255') {
                 if (local.startsWith('255')) local = local.slice(3);
                 if (local.startsWith('0')) local = local.slice(1);
-                if (local.length !== 9 || !/^7\d{8}$/.test(local)) {
-                    return { valid: false, message: 'Enter a valid Tanzania number (9 digits starting with 7, e.g. 712345678)' };
+                
+                // FIX: Accepts numbers starting with either 6 or 7
+                if (local.length !== 9 || !/^[67]\d{8}$/.test(local)) {
+                    return { valid: false, message: 'Enter a valid Tanzania number (9 digits starting with 6 or 7, e.g. 612345678)' };
                 }
+                
                 let localTen = '0' + local;
                 return {
                     valid: true,
@@ -1961,6 +1964,8 @@
                     e164: '+255' + local,
                     international: '255' + local
                 };
+
+
             }
 
             if (code && local.startsWith('0')) local = local.slice(1);
